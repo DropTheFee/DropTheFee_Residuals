@@ -1,0 +1,3 @@
+{
+  "/oauth/callback/route": "app/oauth/callback/route.js"
+}

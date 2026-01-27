@@ -1,0 +1,3 @@
+{
+  "/api/webhooks/ghl/route": "app/api/webhooks/ghl/route.js"
+}

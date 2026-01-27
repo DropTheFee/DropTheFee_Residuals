@@ -1,0 +1,227 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.gohighlevel.com https://*.leadconnectorhq.com https://*.msgsndr.com https://*.highlevel.build"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/api/auth/decrypt-session",
+      "regex": "^/api/auth/decrypt\\-session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/decrypt\\-session(?:/)?$"
+    },
+    {
+      "page": "/api/auth/decrypt-sso",
+      "regex": "^/api/auth/decrypt\\-sso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/decrypt\\-sso(?:/)?$"
+    },
+    {
+      "page": "/api/auth/ghl-sso",
+      "regex": "^/api/auth/ghl\\-sso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/ghl\\-sso(?:/)?$"
+    },
+    {
+      "page": "/api/auth/signout",
+      "regex": "^/api/auth/signout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/signout(?:/)?$"
+    },
+    {
+      "page": "/api/cron/daily_sync",
+      "regex": "^/api/cron/daily_sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/daily_sync(?:/)?$"
+    },
+    {
+      "page": "/api/install-location",
+      "regex": "^/api/install\\-location(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/install\\-location(?:/)?$"
+    },
+    {
+      "page": "/api/locations",
+      "regex": "^/api/locations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/locations(?:/)?$"
+    },
+    {
+      "page": "/api/oauth/authorize",
+      "regex": "^/api/oauth/authorize(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/oauth/authorize(?:/)?$"
+    },
+    {
+      "page": "/api/oauth/callback",
+      "regex": "^/api/oauth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/oauth/callback(?:/)?$"
+    },
+    {
+      "page": "/api/oauth/start",
+      "regex": "^/api/oauth/start(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/oauth/start(?:/)?$"
+    },
+    {
+      "page": "/api/repair",
+      "regex": "^/api/repair(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/repair(?:/)?$"
+    },
+    {
+      "page": "/api/uninstall",
+      "regex": "^/api/uninstall(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/uninstall(?:/)?$"
+    },
+    {
+      "page": "/api/webhooks/ghl",
+      "regex": "^/api/webhooks/ghl(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhooks/ghl(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/docs",
+      "regex": "^/docs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/docs(?:/)?$"
+    },
+    {
+      "page": "/ghl-sso",
+      "regex": "^/ghl\\-sso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ghl\\-sso(?:/)?$"
+    },
+    {
+      "page": "/install",
+      "regex": "^/install(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/install(?:/)?$"
+    },
+    {
+      "page": "/oauth/callback",
+      "regex": "^/oauth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/oauth/callback(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/reset-password",
+      "regex": "^/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/select-location",
+      "regex": "^/select\\-location(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/select\\-location(?:/)?$"
+    },
+    {
+      "page": "/support",
+      "regex": "^/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/support(?:/)?$"
+    },
+    {
+      "page": "/tc",
+      "regex": "^/tc(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/tc(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

@@ -49,13 +49,25 @@ const App = () => {
 
   const fetchUserProfile = async (authUserId: string) => {
     try {
+      console.log('Fetching user profile for auth_id:', authUserId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authUserId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from Supabase:', error);
+        throw error;
+      }
+
+      console.log('User profile data:', data);
+
+      if (!data) {
+        console.warn('No user profile found for auth_id:', authUserId);
+        console.log('User may need to log out and back in for profile to be created');
+      }
+
       setUser(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -82,13 +94,32 @@ const App = () => {
   const DashboardLayout = () => {
     const navigate = useNavigate();
 
-    if (!user) {
+    if (!authUser) {
       return <Navigate to="/" replace />;
+    }
+
+    if (!user) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
+          <div className="text-center space-y-4 p-8 bg-slate-800/50 rounded-lg backdrop-blur max-w-md">
+            <h2 className="text-2xl font-bold text-white">Profile Setup Required</h2>
+            <p className="text-slate-300">
+              Your account needs to be set up. Please sign out and sign back in to complete the setup.
+            </p>
+            <button
+              onClick={handleSignOut}
+              className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      );
     }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-        <Header onSignOut={handleSignOut} />
+        <Header user={user} onSignOut={handleSignOut} />
         <div className="flex">
           <Sidebar />
           <main className="flex-1 p-6">
@@ -116,7 +147,7 @@ const App = () => {
               element={
                 user ? (
                   <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header onSignOut={handleSignOut} />
+                    <Header user={user} onSignOut={handleSignOut} />
                     <div className="flex">
                       <Sidebar />
                       <main className="flex-1 p-6">
@@ -134,7 +165,7 @@ const App = () => {
               element={
                 user ? (
                   <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header onSignOut={handleSignOut} />
+                    <Header user={user} onSignOut={handleSignOut} />
                     <div className="flex">
                       <Sidebar />
                       <main className="flex-1 p-6">

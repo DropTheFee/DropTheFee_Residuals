@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
-  user: User;
+  user?: User;
   onSignOut: () => void;
 }
 
@@ -46,8 +46,8 @@ export function Header({ user, onSignOut }: HeaderProps) {
             <Button variant="ghost" className="flex items-center gap-2 text-slate-300 hover:text-white hover:bg-[#1a1a2e]">
               <UserIcon className="h-5 w-5" />
               <div className="text-left">
-                <div className="text-sm font-medium">{user.full_name || user.email}</div>
-                <div className="text-xs text-slate-400">{getRoleBadge(user.role)}</div>
+                <div className="text-sm font-medium">{user?.full_name || user?.email || 'User'}</div>
+                <div className="text-xs text-slate-400">{user ? getRoleBadge(user.role) : 'Loading...'}</div>
               </div>
             </Button>
           </DropdownMenuTrigger>

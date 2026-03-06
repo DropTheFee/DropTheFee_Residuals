@@ -10,7 +10,6 @@ export default function Index() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [resetMode, setResetMode] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -25,13 +24,6 @@ export default function Index() {
         if (error) throw error;
         toast.success('Password reset email sent! Check your inbox.');
         setResetMode(false);
-      } else if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
-        toast.success('Account created! Please check your email to verify.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -55,7 +47,7 @@ export default function Index() {
             DropTheFee
           </CardTitle>
           <CardDescription className="text-center text-slate-400">
-            {resetMode ? 'Reset your password' : isSignUp ? 'Create your account' : 'Sign in to your account'}
+            {resetMode ? 'Reset your password' : 'Sign in to your account'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,26 +83,16 @@ export default function Index() {
               disabled={loading}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
             >
-              {loading ? 'Loading...' : resetMode ? 'Send Reset Email' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? 'Loading...' : resetMode ? 'Send Reset Email' : 'Sign In'}
             </Button>
           </form>
-          <div className="mt-4 text-center space-y-2">
-            {!resetMode && (
-              <button
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm text-cyan-400 hover:text-cyan-300"
-              >
-                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-              </button>
-            )}
-            <div>
-              <button
-                onClick={() => setResetMode(!resetMode)}
-                className="text-sm text-slate-400 hover:text-slate-300"
-              >
-                {resetMode ? 'Back to sign in' : 'Forgot password?'}
-              </button>
-            </div>
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setResetMode(!resetMode)}
+              className="text-sm text-slate-400 hover:text-slate-300"
+            >
+              {resetMode ? 'Back to sign in' : 'Forgot password?'}
+            </button>
           </div>
         </CardContent>
       </Card>

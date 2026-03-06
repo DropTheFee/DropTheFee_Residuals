@@ -56,7 +56,7 @@ export default function Processors() {
       const { data: userData } = await supabase
         .from('users')
         .select('agency_id')
-        .eq('auth_id', user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
       if (userData?.agency_id) {
@@ -99,7 +99,7 @@ export default function Processors() {
       const { data: userData } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_id', user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
       const { error } = await supabase

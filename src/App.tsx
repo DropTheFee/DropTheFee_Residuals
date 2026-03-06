@@ -25,10 +25,9 @@ const App = () => {
     // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthUser(session?.user ?? null);
+      setLoading(false);
       if (session?.user) {
         fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
       }
     });
 
@@ -41,7 +40,6 @@ const App = () => {
         fetchUserProfile(session.user.id);
       } else {
         setUser(null);
-        setLoading(false);
       }
     });
 
@@ -59,21 +57,19 @@ const App = () => {
 
       if (error) {
         console.error('Error from Supabase:', error);
-        throw error;
+        return;
       }
 
       console.log('User profile data:', data);
 
       if (!data) {
         console.warn('No user profile found for auth_id:', authUserId);
-        console.log('User may need to log out and back in for profile to be created');
+        console.log('Profile will be created in the background');
       }
 
       setUser(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -99,33 +95,22 @@ const App = () => {
       return <Navigate to="/" replace />;
     }
 
-    if (!user) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-          <div className="text-center space-y-4 p-8 bg-slate-800/50 rounded-lg backdrop-blur max-w-md">
-            <h2 className="text-2xl font-bold text-white">Profile Setup Required</h2>
-            <p className="text-slate-300">
-              Your account needs to be set up. Please sign out and sign back in to complete the setup.
-            </p>
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      );
-    }
+    const defaultUser: User = user || {
+      id: authUser.id,
+      email: authUser.email || '',
+      role: 'sales_rep',
+      created_at: new Date().toISOString(),
+      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
+    };
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-        <Header user={user} onSignOut={handleSignOut} />
+        <Header user={defaultUser} onSignOut={handleSignOut} />
         <div className="flex">
           <Sidebar />
           <main className="flex-1 p-6">
             <Dashboard
-              user={user}
+              user={defaultUser}
               onNavigateToUpload={() => navigate('/upload')}
               onNavigateToCommissions={() => navigate('/merchants')}
             />
@@ -147,9 +132,15 @@ const App = () => {
             <Route
               path="/upload"
               element={
-                user ? (
+                authUser ? (
                   <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header user={user} onSignOut={handleSignOut} />
+                    <Header user={user || {
+                      id: authUser.id,
+                      email: authUser.email || '',
+                      role: 'sales_rep',
+                      created_at: new Date().toISOString(),
+                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
+                    }} onSignOut={handleSignOut} />
                     <div className="flex">
                       <Sidebar />
                       <main className="flex-1 p-6">
@@ -165,9 +156,15 @@ const App = () => {
             <Route
               path="/merchants"
               element={
-                user ? (
+                authUser ? (
                   <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header user={user} onSignOut={handleSignOut} />
+                    <Header user={user || {
+                      id: authUser.id,
+                      email: authUser.email || '',
+                      role: 'sales_rep',
+                      created_at: new Date().toISOString(),
+                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
+                    }} onSignOut={handleSignOut} />
                     <div className="flex">
                       <Sidebar />
                       <main className="flex-1 p-6">

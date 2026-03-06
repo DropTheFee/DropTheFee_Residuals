@@ -11,6 +11,7 @@ import Upload from './pages/Upload';
 import Merchants from './pages/Merchants';
 import NotFound from './pages/NotFound';
 import Index from './pages/Index';
+import ResetPassword from './pages/ResetPassword';
 import { User } from '@/types';
 
 const queryClient = new QueryClient();
@@ -141,6 +142,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={!authUser ? <Index /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<DashboardLayout />} />
             <Route
               path="/upload"

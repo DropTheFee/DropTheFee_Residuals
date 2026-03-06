@@ -3,17 +3,27 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { User } from '@/types';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Upload, label: 'Upload Reports', path: '/upload' },
+  { icon: Upload, label: 'Upload Reports', path: '/upload', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: Users, label: 'Merchants', path: '/merchants' },
-  { icon: Settings, label: 'Processors', path: '/processors' },
+  { icon: Settings, label: 'Processors', path: '/processors', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  user?: User;
+}
+
+export default function Sidebar({ user }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if (!item.restrictedRoles || !user) return true;
+    return !item.restrictedRoles.includes(user.role);
+  });
 
   return (
     <aside
@@ -35,7 +45,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 p-2">
-        {menuItems.map((item) => {
+        {filteredMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
 

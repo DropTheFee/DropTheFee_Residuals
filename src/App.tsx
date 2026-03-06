@@ -109,7 +109,7 @@ const App = () => {
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
         <Header user={user} onSignOut={handleSignOut} />
         <div className="flex">
-          <Sidebar />
+          <Sidebar user={user} />
           <main className="flex-1 p-6">
             {children}
           </main>

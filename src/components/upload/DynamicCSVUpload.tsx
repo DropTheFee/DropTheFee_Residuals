@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle2, Settings } from 'lucide-react';
+import { Upload, FileText, CircleAlert as AlertCircle, CircleCheck as CheckCircle2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

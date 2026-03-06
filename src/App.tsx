@@ -49,11 +49,11 @@ const App = () => {
 
   const fetchUserProfile = async (authUserId: string) => {
     try {
-      console.log('Fetching user profile for auth_id:', authUserId);
+      console.log('Fetching user profile for id:', authUserId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_id', authUserId)
+        .eq('id', authUserId)
         .maybeSingle();
 
       if (error) {

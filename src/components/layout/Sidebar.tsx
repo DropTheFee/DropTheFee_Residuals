@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Upload, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Upload, label: 'Upload Reports', path: '/upload' },
   { icon: Users, label: 'Merchants', path: '/merchants' },
+  { icon: Settings, label: 'Processors', path: '/processors' },
 ];
 
 export default function Sidebar() {

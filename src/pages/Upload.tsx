@@ -1,5 +1,5 @@
-import CSVUpload from '@/components/upload/CSVUpload';
+import DynamicCSVUpload from '@/components/upload/DynamicCSVUpload';
 
 export default function Upload() {
-  return <CSVUpload />;
+  return <DynamicCSVUpload />;
 }

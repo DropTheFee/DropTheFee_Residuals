@@ -9,6 +9,7 @@ import { Header } from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Upload from './pages/Upload';
 import Merchants from './pages/Merchants';
+import Processors from './pages/Processors';
 import NotFound from './pages/NotFound';
 import Index from './pages/Index';
 import ResetPassword from './pages/ResetPassword';
@@ -169,6 +170,30 @@ const App = () => {
                       <Sidebar />
                       <main className="flex-1 p-6">
                         <Merchants />
+                      </main>
+                    </div>
+                  </div>
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
+              path="/processors"
+              element={
+                authUser ? (
+                  <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
+                    <Header user={user || {
+                      id: authUser.id,
+                      email: authUser.email || '',
+                      role: 'sales_rep',
+                      created_at: new Date().toISOString(),
+                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
+                    }} onSignOut={handleSignOut} />
+                    <div className="flex">
+                      <Sidebar />
+                      <main className="flex-1 p-6">
+                        <Processors />
                       </main>
                     </div>
                   </div>

@@ -89,35 +89,44 @@ const App = () => {
     await supabase.auth.signOut();
   };
 
-  const DashboardLayout = () => {
-    const navigate = useNavigate();
-
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!authUser) {
       return <Navigate to="/" replace />;
     }
 
-    const defaultUser: User = user || {
-      id: authUser.id,
-      email: authUser.email || '',
-      role: 'sales_rep',
-      created_at: new Date().toISOString(),
-      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
-    };
+    if (!user) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+          <div className="text-center space-y-4">
+            <div className="text-lg text-slate-300">Loading your profile...</div>
+            <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-        <Header user={defaultUser} onSignOut={handleSignOut} />
+        <Header user={user} onSignOut={handleSignOut} />
         <div className="flex">
           <Sidebar />
           <main className="flex-1 p-6">
-            <Dashboard
-              user={defaultUser}
-              onNavigateToUpload={() => navigate('/upload')}
-              onNavigateToCommissions={() => navigate('/merchants')}
-            />
+            {children}
           </main>
         </div>
       </div>
+    );
+  };
+
+  const DashboardLayout = () => {
+    const navigate = useNavigate();
+
+    return (
+      <Dashboard
+        user={user!}
+        onNavigateToUpload={() => navigate('/upload')}
+        onNavigateToCommissions={() => navigate('/merchants')}
+      />
     );
   };
 
@@ -129,79 +138,10 @@ const App = () => {
           <Routes>
             <Route path="/" element={!authUser ? <Index /> : <Navigate to="/dashboard" replace />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/dashboard" element={<DashboardLayout />} />
-            <Route
-              path="/upload"
-              element={
-                authUser ? (
-                  <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header user={user || {
-                      id: authUser.id,
-                      email: authUser.email || '',
-                      role: 'sales_rep',
-                      created_at: new Date().toISOString(),
-                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
-                    }} onSignOut={handleSignOut} />
-                    <div className="flex">
-                      <Sidebar />
-                      <main className="flex-1 p-6">
-                        <Upload />
-                      </main>
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
-            <Route
-              path="/merchants"
-              element={
-                authUser ? (
-                  <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header user={user || {
-                      id: authUser.id,
-                      email: authUser.email || '',
-                      role: 'sales_rep',
-                      created_at: new Date().toISOString(),
-                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
-                    }} onSignOut={handleSignOut} />
-                    <div className="flex">
-                      <Sidebar />
-                      <main className="flex-1 p-6">
-                        <Merchants />
-                      </main>
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
-            <Route
-              path="/processors"
-              element={
-                authUser ? (
-                  <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
-                    <Header user={user || {
-                      id: authUser.id,
-                      email: authUser.email || '',
-                      role: 'sales_rep',
-                      created_at: new Date().toISOString(),
-                      full_name: authUser.user_metadata?.full_name || authUser.email || 'User',
-                    }} onSignOut={handleSignOut} />
-                    <div className="flex">
-                      <Sidebar />
-                      <main className="flex-1 p-6">
-                        <Processors />
-                      </main>
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} />
+            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/merchants" element={<ProtectedRoute><Merchants /></ProtectedRoute>} />
+            <Route path="/processors" element={<ProtectedRoute><Processors /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

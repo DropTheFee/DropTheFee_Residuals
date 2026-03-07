@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, CreditCard as Edit2 } from 'lucide-react';
+import { Plus, Trash2, CreditCard as Edit2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { ColumnMapper } from '@/components/upload/ColumnMapper';
+import { extractFileHeaders } from '@/utils/dynamicParser';
 
 interface ProcessorMapping {
   id: string;
@@ -33,10 +35,13 @@ export default function Processors() {
   const [mappings, setMappings] = useState<ProcessorMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingMapping, setEditingMapping] = useState<ProcessorMapping | null>(null);
   const [newProcessorName, setNewProcessorName] = useState('');
   const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [showMapper, setShowMapper] = useState(false);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [headerRowNumber, setHeaderRowNumber] = useState(0);
+  const [editingMapping, setEditingMapping] = useState<ProcessorMapping | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchUserAgency();
@@ -102,21 +107,24 @@ export default function Processors() {
         .eq('id', user.id)
         .maybeSingle();
 
-      const { error } = await supabase
+      const { data: newMapping, error } = await supabase
         .from('processor_mappings')
         .insert({
           agency_id: agencyId,
           processor_name: newProcessorName.trim(),
           created_by: userData?.id,
           header_row_number: 0,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast.success('Processor added successfully');
-      setNewProcessorName('');
+      toast.success('Processor added. Now upload a sample file to configure column mappings.');
       setIsAddDialogOpen(false);
-      fetchMappings();
+      setEditingMapping(newMapping);
+      setNewProcessorName('');
+      await fetchMappings();
     } catch (error: any) {
       console.error('Error adding processor:', error);
       if (error.code === '23505') {
@@ -150,24 +158,50 @@ export default function Processors() {
 
   const handleEditProcessor = (mapping: ProcessorMapping) => {
     setEditingMapping(mapping);
-    setIsEditDialogOpen(true);
+    setUploadFile(null);
+    setFileHeaders([]);
+    setHeaderRowNumber(mapping.header_row_number);
   };
 
-  const handleUpdateMapping = async () => {
-    if (!editingMapping) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    const isCSV = selectedFile.name.endsWith('.csv');
+    const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+
+    if (!isCSV && !isExcel) {
+      toast.error('Please select a valid CSV or Excel file');
+      return;
+    }
+
+    setUploadFile(selectedFile);
+
+    try {
+      const headers = await extractFileHeaders(selectedFile, headerRowNumber);
+      setFileHeaders(headers);
+      setShowMapper(true);
+    } catch (error) {
+      console.error('Error extracting headers:', error);
+      toast.error('Failed to read file headers');
+    }
+  };
+
+  const handleMappingComplete = async (mapping: any) => {
+    if (!editingMapping || !agencyId) return;
 
     try {
       const { error } = await supabase
         .from('processor_mappings')
         .update({
-          mid_column: editingMapping.mid_column || null,
-          merchant_name_column: editingMapping.merchant_name_column || null,
-          volume_column: editingMapping.volume_column || null,
-          residual_column: editingMapping.residual_column || null,
-          status_column: editingMapping.status_column || null,
-          rep_payout_column: editingMapping.rep_payout_column || null,
-          dba_column: editingMapping.dba_column || null,
-          header_row_number: editingMapping.header_row_number,
+          mid_column: mapping.mid_column || null,
+          merchant_name_column: mapping.merchant_name_column || null,
+          volume_column: mapping.volume_column || null,
+          residual_column: mapping.residual_column || null,
+          status_column: mapping.status_column || null,
+          rep_payout_column: mapping.rep_payout_column || null,
+          dba_column: mapping.dba_column || null,
+          header_row_number: headerRowNumber,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingMapping.id);
@@ -175,8 +209,10 @@ export default function Processors() {
       if (error) throw error;
 
       toast.success('Mapping updated successfully');
-      setIsEditDialogOpen(false);
+      setShowMapper(false);
       setEditingMapping(null);
+      setFileHeaders([]);
+      setUploadFile(null);
       fetchMappings();
     } catch (error) {
       console.error('Error updating mapping:', error);
@@ -184,10 +220,105 @@ export default function Processors() {
     }
   };
 
+  const handleCancelMapping = () => {
+    setShowMapper(false);
+    setEditingMapping(null);
+    setFileHeaders([]);
+    setUploadFile(null);
+    setHeaderRowNumber(0);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-lg text-slate-300">Loading...</div>
+      </div>
+    );
+  }
+
+  if (showMapper && fileHeaders.length > 0 && editingMapping) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Configure Column Mapping</h1>
+            <p className="text-slate-400 mt-1">Map columns for {editingMapping.processor_name}</p>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <Label htmlFor="header-row" className="text-slate-300">Header Row Number (0 = first row)</Label>
+          <Input
+            id="header-row"
+            type="number"
+            min="0"
+            value={headerRowNumber}
+            onChange={(e) => setHeaderRowNumber(parseInt(e.target.value) || 0)}
+            className="bg-slate-700 border-slate-600 text-white max-w-xs"
+          />
+        </div>
+
+        <ColumnMapper
+          headers={fileHeaders}
+          processorName={editingMapping.processor_name}
+          onMappingComplete={handleMappingComplete}
+          onCancel={handleCancelMapping}
+        />
+      </div>
+    );
+  }
+
+  if (editingMapping && !showMapper) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Upload Sample File</h1>
+            <p className="text-slate-400 mt-1">Upload a sample file for {editingMapping.processor_name} to configure column mappings</p>
+          </div>
+        </div>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Select Sample File</CardTitle>
+            <CardDescription className="text-slate-400">
+              Upload a CSV or Excel file from {editingMapping.processor_name} to map columns
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <Label htmlFor="file-input" className="text-slate-300 mb-2 block">
+                Upload File (CSV or Excel)
+              </Label>
+              <div className="flex items-center gap-4">
+                <input
+                  id="file-input"
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('file-input')?.click()}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose File
+                </Button>
+                {uploadFile && (
+                  <span className="text-sm text-slate-300">{uploadFile.name}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={handleCancelMapping}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -311,133 +442,6 @@ export default function Processors() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-white">Edit Mapping: {editingMapping?.processor_name}</DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Configure which columns in your CSV/Excel file map to each field.
-            </DialogDescription>
-          </DialogHeader>
-          {editingMapping && (
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <Label htmlFor="header-row" className="text-slate-300">Header Row Number (0-indexed)</Label>
-                <Input
-                  id="header-row"
-                  type="number"
-                  min="0"
-                  value={editingMapping.header_row_number}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    header_row_number: parseInt(e.target.value) || 0
-                  })}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="mid-column" className="text-slate-300">MID Column Name</Label>
-                <Input
-                  id="mid-column"
-                  value={editingMapping.mid_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    mid_column: e.target.value
-                  })}
-                  placeholder="e.g., MID, Merchant ID"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="merchant-name" className="text-slate-300">Merchant Name Column</Label>
-                <Input
-                  id="merchant-name"
-                  value={editingMapping.merchant_name_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    merchant_name_column: e.target.value
-                  })}
-                  placeholder="e.g., Merchant Name, Business Name"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="dba-column" className="text-slate-300">DBA Column (Optional)</Label>
-                <Input
-                  id="dba-column"
-                  value={editingMapping.dba_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    dba_column: e.target.value
-                  })}
-                  placeholder="e.g., DBA, Doing Business As"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="volume-column" className="text-slate-300">Volume Column</Label>
-                <Input
-                  id="volume-column"
-                  value={editingMapping.volume_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    volume_column: e.target.value
-                  })}
-                  placeholder="e.g., Volume, Total Volume"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="residual-column" className="text-slate-300">Residual Amount Column</Label>
-                <Input
-                  id="residual-column"
-                  value={editingMapping.residual_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    residual_column: e.target.value
-                  })}
-                  placeholder="e.g., Residual, Commission"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="status-column" className="text-slate-300">Status Column (Optional)</Label>
-                <Input
-                  id="status-column"
-                  value={editingMapping.status_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    status_column: e.target.value
-                  })}
-                  placeholder="e.g., Status, Account Status"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-              <div>
-                <Label htmlFor="rep-payout-column" className="text-slate-300">Rep Payout Column (Optional)</Label>
-                <Input
-                  id="rep-payout-column"
-                  value={editingMapping.rep_payout_column || ''}
-                  onChange={(e) => setEditingMapping({
-                    ...editingMapping,
-                    rep_payout_column: e.target.value
-                  })}
-                  placeholder="e.g., Rep Payout, Agent Commission"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateMapping} className="bg-cyan-500 hover:bg-cyan-600">
-              Save Mapping
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

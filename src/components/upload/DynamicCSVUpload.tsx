@@ -204,18 +204,26 @@ export default function DynamicCSVUpload() {
 
       setProgress(60);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const reportInsert = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        processor: selectedProcessor,
+        report_type: selectedProcessor,
+        upload_date: new Date().toISOString(),
+        data: result.data,
+        stats: {},
+        created_at: new Date().toISOString(),
+        agency_id: agencyId,
+      };
+
+      console.log('Report insert object:', reportInsert);
+
       const { error: reportError } = await supabase
         .from('reports')
-        .insert({
-          user_id: userId,
-          agency_id: agencyId,
-          processor: selectedProcessor,
-          report_type: selectedProcessor,
-          report_date: new Date(),
-          file_name: file.name,
-          data: result.data,
-          stats: {},
-        });
+        .insert(reportInsert);
 
       if (reportError) throw reportError;
 

@@ -26,18 +26,21 @@ export default function MerchantsTable() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: userData } = await supabase
+      const { data: userProfile } = await supabase
         .from('users')
         .select('agency_id')
         .eq('auth_id', user.id)
         .single();
 
-      if (!userData) return;
+      if (!userProfile) return;
 
       const { data, error } = await supabase
         .from('merchants')
         .select('*')
-        .eq('agency_id', userData.agency_id);
+        .eq('agency_id', userProfile.agency_id)
+        .order('merchant_name', { ascending: true });
+
+      console.log('Merchants query result:', data, error);
 
       if (error) throw error;
       setMerchants(data || []);

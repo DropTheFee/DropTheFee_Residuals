@@ -28,6 +28,8 @@ interface ColumnMapperProps {
 }
 
 export function ColumnMapper({ headers, processorName, onMappingComplete, onCancel }: ColumnMapperProps) {
+  const cleanHeaders = headers.filter(h => h && h.trim() !== '');
+
   const [mapping, setMapping] = useState<ColumnMapping>({
     mid_column: '',
     merchant_name_column: '',
@@ -63,7 +65,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
                 <SelectValue placeholder="Select MID column" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -79,7 +81,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
                 <SelectValue placeholder="Select merchant name column" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -96,7 +98,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
                 <SelectItem value="" className="text-white">None</SelectItem>
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -112,7 +114,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
                 <SelectValue placeholder="Select volume column" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -128,7 +130,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
                 <SelectValue placeholder="Select residual column" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -145,7 +147,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
                 <SelectItem value="" className="text-white">None</SelectItem>
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>
@@ -162,7 +164,7 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700">
                 <SelectItem value="" className="text-white">None</SelectItem>
-                {headers.map((header) => (
+                {cleanHeaders.map((header) => (
                   <SelectItem key={header} value={header} className="text-white">
                     {header}
                   </SelectItem>

@@ -210,13 +210,11 @@ export default function DynamicCSVUpload() {
           user_id: userId,
           agency_id: agencyId,
           processor: selectedProcessor,
-          report_type: result.reportType,
+          report_type: selectedProcessor,
           report_date: new Date(),
           file_name: file.name,
-          merchant_data: result.data,
-          stats: result.stats,
-          processor_stats: result.processorStats,
           data: result.data,
+          stats: {},
         });
 
       if (reportError) throw reportError;

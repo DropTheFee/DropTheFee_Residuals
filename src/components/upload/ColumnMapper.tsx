@@ -27,8 +27,13 @@ interface ColumnMapperProps {
   onCancel: () => void;
 }
 
+const IGNORE_VALUE = '__ignore__';
+
 export function ColumnMapper({ headers, processorName, onMappingComplete, onCancel }: ColumnMapperProps) {
-  const cleanHeaders = headers.filter((h): h is string => typeof h === 'string' && h.trim().length > 0);
+  // Filter out empty, null, whitespace-only headers immediately
+  const cleanHeaders = Array.isArray(headers)
+    ? headers.filter(h => h !== null && h !== undefined && String(h).trim() !== '')
+    : [];
 
   const [mapping, setMapping] = useState<ColumnMapping>({
     mid_column: '',
@@ -45,143 +50,86 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
       alert('Please select at least MID, Merchant Name, Volume, and Residual columns');
       return;
     }
-    onMappingComplete(mapping);
+    // Clean up ignore values before saving
+    const cleanMapping: ColumnMapping = {
+      mid_column: mapping.mid_column,
+      merchant_name_column: mapping.merchant_name_column,
+      volume_column: mapping.volume_column,
+      residual_column: mapping.residual_column,
+      status_column: mapping.status_column === IGNORE_VALUE ? '' : mapping.status_column,
+      rep_payout_column: mapping.rep_payout_column === IGNORE_VALUE ? '' : mapping.rep_payout_column,
+      dba_column: mapping.dba_column === IGNORE_VALUE ? '' : mapping.dba_column,
+    };
+    onMappingComplete(cleanMapping);
   };
+
+  const renderSelect = (
+    label: string,
+    field: keyof ColumnMapping,
+    required: boolean
+  ) => (
+    <div>
+      <Label className="text-slate-300">{label}{required ? ' *' : ' (Optional)'}</Label>
+      <Select
+        value={mapping[field] || (required ? '' : IGNORE_VALUE)}
+        onValueChange={(value) => setMapping({ ...mapping, [field]: value })}
+      >
+        <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+          <SelectValue placeholder={required ? `Select ${label}` : 'Ignore this field'} />
+        </SelectTrigger>
+        <SelectContent className="bg-slate-800 border-slate-700">
+          {!required && (
+            <SelectItem value={IGNORE_VALUE} className="text-slate-400">
+              — Ignore —
+            </SelectItem>
+          )}
+          {cleanHeaders.map((header) => (
+            <SelectItem key={header} value={header} className="text-white">
+              {header}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   return (
     <Card className="bg-slate-800/50 border-slate-700">
       <CardHeader>
         <CardTitle className="text-white">Map Columns for {processorName}</CardTitle>
         <CardDescription className="text-slate-400">
-          Select which columns from your file correspond to each field. Required fields are marked with *.
+          Match your file's column headers to the required fields. Required fields are marked with *.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4">
-          <div>
-            <Label htmlFor="mid" className="text-slate-300">MID Column *</Label>
-            <Select value={mapping.mid_column} onValueChange={(value) => setMapping({ ...mapping, mid_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select MID column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {cleanHeaders.length === 0 ? (
+          <div className="text-red-400 text-sm">
+            No valid column headers found in file. Please check your file and try again.
           </div>
-
-          <div>
-            <Label htmlFor="merchant-name" className="text-slate-300">Merchant Name Column *</Label>
-            <Select value={mapping.merchant_name_column} onValueChange={(value) => setMapping({ ...mapping, merchant_name_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select merchant name column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="dba" className="text-slate-300">DBA Column (Optional)</Label>
-            <Select value={mapping.dba_column} onValueChange={(value) => setMapping({ ...mapping, dba_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select DBA column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="" className="text-white">None</SelectItem>
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="volume" className="text-slate-300">Volume Column *</Label>
-            <Select value={mapping.volume_column} onValueChange={(value) => setMapping({ ...mapping, volume_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select volume column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="residual" className="text-slate-300">Residual Amount Column *</Label>
-            <Select value={mapping.residual_column} onValueChange={(value) => setMapping({ ...mapping, residual_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select residual column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="status" className="text-slate-300">Status Column (Optional)</Label>
-            <Select value={mapping.status_column} onValueChange={(value) => setMapping({ ...mapping, status_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select status column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="" className="text-white">None</SelectItem>
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="rep-payout" className="text-slate-300">Rep Payout Column (Optional)</Label>
-            <Select value={mapping.rep_payout_column} onValueChange={(value) => setMapping({ ...mapping, rep_payout_column: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Select rep payout column" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                <SelectItem value="" className="text-white">None</SelectItem>
-                {cleanHeaders.map((header) => (
-                  <SelectItem key={header} value={header} className="text-white">
-                    {header}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} className="bg-cyan-500 hover:bg-cyan-600">
-            Save Mapping & Continue
-          </Button>
-        </div>
+        ) : (
+          <>
+            <div className="text-slate-400 text-sm mb-2">
+              {cleanHeaders.length} columns detected: {cleanHeaders.join(', ')}
+            </div>
+            <div className="grid gap-4">
+              {renderSelect('MID Column', 'mid_column', true)}
+              {renderSelect('Merchant Name Column', 'merchant_name_column', true)}
+              {renderSelect('Volume Column', 'volume_column', true)}
+              {renderSelect('Residual Amount Column', 'residual_column', true)}
+              {renderSelect('DBA Column', 'dba_column', false)}
+              {renderSelect('Status Column', 'status_column', false)}
+              {renderSelect('Rep Payout Column', 'rep_payout_column', false)}
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="ghost" onClick={onCancel} className="text-slate-300">
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} className="bg-cyan-500 hover:bg-cyan-600">
+                Save Mapping & Continue
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

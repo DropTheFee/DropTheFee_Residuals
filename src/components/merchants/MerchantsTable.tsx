@@ -18,38 +18,25 @@ export default function MerchantsTable() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    fetchMerchants();
-  }, []);
-
-  const fetchMerchants = async () => {
-    try {
+    const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userProfile } = await supabase
+      const { data: profile } = await supabase
         .from('users')
         .select('agency_id')
-        .eq('auth_id', user.id)
+        .eq('id', user.id)
         .single();
-
-      if (!userProfile) return;
-
+      console.log('agency_id:', profile?.agency_id);
       const { data, error } = await supabase
         .from('merchants')
         .select('*')
-        .eq('agency_id', userProfile.agency_id)
+        .eq('agency_id', profile.agency_id)
         .order('merchant_name', { ascending: true });
-
-      console.log('Merchants query result:', data, error);
-
-      if (error) throw error;
+      console.log('merchants result:', data, error);
       setMerchants(data || []);
-    } catch (error) {
-      console.error('Error fetching merchants:', error);
-    } finally {
       setLoading(false);
-    }
-  };
+    };
+    load();
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

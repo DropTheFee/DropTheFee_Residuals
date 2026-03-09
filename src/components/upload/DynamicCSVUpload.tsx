@@ -230,17 +230,24 @@ export default function DynamicCSVUpload() {
       setProgress(80);
 
       for (const merchant of result.data) {
+        const merchantPayload = {
+          id: crypto.randomUUID(),
+          agency_id: agencyId,
+          merchant_name: merchant.merchantName,
+          merchant_id: merchant.merchantId?.toString().trim(),
+          processor: selectedProcessor,
+          dba_name: merchant.dbaName || merchant.merchantName,
+          status: merchant.status || 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log('Merchant upsert payload:', merchantPayload);
+
         await supabase
           .from('merchants')
-          .upsert({
-            agency_id: agencyId,
-            merchant_id: merchant.merchantId,
-            merchant_name: merchant.merchantName,
-            sales_rep_id: userId,
-            last_report_date: new Date(),
-            status: merchant.isActive ? 'active' : 'inactive',
-          }, {
-            onConflict: 'agency_id,merchant_id',
+          .upsert(merchantPayload, {
+            onConflict: 'agency_id,merchant_id,processor',
           });
       }
 

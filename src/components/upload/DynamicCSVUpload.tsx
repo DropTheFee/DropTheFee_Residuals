@@ -227,7 +227,10 @@ export default function DynamicCSVUpload() {
 
       if (reportError) throw reportError;
 
-      setProgress(80);
+      setProgress(70);
+
+      const currentDate = new Date();
+      const periodMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
 
       for (const merchant of result.data) {
         const merchantPayload = {
@@ -249,6 +252,37 @@ export default function DynamicCSVUpload() {
           .upsert(merchantPayload, {
             onConflict: 'agency_id,merchant_id,processor',
           });
+      }
+
+      setProgress(80);
+
+      for (const merchant of result.data) {
+        const { data: merchantRecord } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('agency_id', agencyId)
+          .eq('merchant_id', merchant.merchantId?.toString().trim())
+          .eq('processor', selectedProcessor)
+          .maybeSingle();
+
+        if (merchantRecord) {
+          const historyPayload = {
+            merchant_id: merchantRecord.id,
+            report_date: periodMonth,
+            monthly_volume: parseFloat(merchant.volume as string) || 0,
+            monthly_income: parseFloat(merchant.residual as string) || 0,
+            rep_payout: merchant.repPayout ? parseFloat(merchant.repPayout as string) || 0 : 0,
+            agency_income: null,
+          };
+
+          console.log('Merchant history upsert payload:', historyPayload);
+
+          await supabase
+            .from('merchant_history')
+            .upsert(historyPayload, {
+              onConflict: 'merchant_id,report_date',
+            });
+        }
       }
 
       setProgress(100);

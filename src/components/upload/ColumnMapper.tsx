@@ -28,7 +28,7 @@ interface ColumnMapperProps {
 }
 
 export function ColumnMapper({ headers, processorName, onMappingComplete, onCancel }: ColumnMapperProps) {
-  const cleanHeaders = headers.filter(h => h && h.trim() !== '');
+  const cleanHeaders = headers.filter((h): h is string => typeof h === 'string' && h.trim().length > 0);
 
   const [mapping, setMapping] = useState<ColumnMapping>({
     mid_column: '',

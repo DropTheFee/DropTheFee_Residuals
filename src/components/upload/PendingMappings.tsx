@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Check, X, CircleAlert as AlertCircle } from 'lucide-react';
 
 interface PendingExpense {
   id: string;

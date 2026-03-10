@@ -31,7 +31,7 @@ export default function ExpenseUpload() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnmatchedMerchants && currentLocation.pathname !== nextLocation.pathname
+      Boolean(hasUnmatchedMerchants && currentLocation.pathname !== nextLocation.pathname)
   );
 
   useEffect(() => {
@@ -48,13 +48,13 @@ export default function ExpenseUpload() {
   }, [hasUnmatchedMerchants]);
 
   useEffect(() => {
-    if (blocker.state === 'blocked') {
+    if (blocker && blocker.state === 'blocked') {
       const confirmNavigation = window.confirm(
         'You have unmatched merchants that need mapping. If you leave, your progress will be lost.\n\nAre you sure you want to leave?'
       );
-      if (confirmNavigation) {
+      if (confirmNavigation && blocker.proceed) {
         blocker.proceed();
-      } else {
+      } else if (blocker.reset) {
         blocker.reset();
       }
     }

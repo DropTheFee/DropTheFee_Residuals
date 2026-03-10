@@ -14,8 +14,8 @@ export default function MerchantsTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProcessor, setFilterProcessor] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<keyof Merchant>('total_lifetime_income');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<keyof Merchant>('merchant_name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     const load = async () => {
@@ -177,8 +177,10 @@ export default function MerchantsTable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Processors</SelectItem>
-                <SelectItem value="EPI">EPI</SelectItem>
+                <SelectItem value="Vivid Payments">Vivid Payments</SelectItem>
                 <SelectItem value="Paysafe">Paysafe</SelectItem>
+                <SelectItem value="PCS">PCS</SelectItem>
+                <SelectItem value="EPI">EPI</SelectItem>
                 <SelectItem value="Vivid">Vivid</SelectItem>
                 <SelectItem value="Link2Pay">Link2Pay</SelectItem>
                 <SelectItem value="Payarc">Payarc</SelectItem>

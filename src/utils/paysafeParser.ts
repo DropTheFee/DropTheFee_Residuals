@@ -8,6 +8,7 @@ interface PaysafeConfig {
   residualColumn: number;
   agentFilterColumn: number;
   openDateColumn: number;
+  closeDateColumn: number | null;
   skipRows: number;
 }
 
@@ -18,6 +19,7 @@ const PAYSAFE_CONFIG: PaysafeConfig = {
   residualColumn: 270,
   agentFilterColumn: 9,
   openDateColumn: 8,
+  closeDateColumn: null,
   skipRows: 2,
 };
 
@@ -28,6 +30,7 @@ const PCS_CONFIG: PaysafeConfig = {
   residualColumn: 164,
   agentFilterColumn: 11,
   openDateColumn: 10,
+  closeDateColumn: null,
   skipRows: 2,
 };
 
@@ -65,6 +68,9 @@ export const parsePaysafeFile = async (
             const merchantName = row[config.merchantNameColumn] ? String(row[config.merchantNameColumn]).trim() : '';
             const agentNumber = row[config.agentFilterColumn] ? String(row[config.agentFilterColumn]).trim() : '';
             const openDate = row[config.openDateColumn] ? row[config.openDateColumn] : null;
+            const closeDate = config.closeDateColumn !== null && row[config.closeDateColumn]
+              ? row[config.closeDateColumn]
+              : null;
 
             if (!mid || !merchantName) {
               return;
@@ -90,6 +96,9 @@ export const parsePaysafeFile = async (
 
             const residualPercentage = volume > 0 ? (residual / volume) * 100 : 0;
 
+            const normalizedStatus = closeDate ? 'closed' : 'active';
+            const isActive = normalizedStatus === 'active';
+
             merchantData.push({
               merchantName,
               merchantId: mid,
@@ -102,9 +111,9 @@ export const parsePaysafeFile = async (
               processor,
               reportType: processor,
               reportDate: new Date().toISOString(),
-              status: 'Open',
-              isActive: true,
-              isClosed: false,
+              status: normalizedStatus,
+              isActive: isActive,
+              isClosed: !isActive,
               agencyIncome: residual,
               originalRow: {
                 mid,
@@ -113,6 +122,7 @@ export const parsePaysafeFile = async (
                 residual,
                 agentNumber,
                 openDate,
+                closeDate,
               },
             });
           } catch (error) {

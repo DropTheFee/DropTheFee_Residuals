@@ -23,6 +23,7 @@ interface UploadSummary {
 interface Merchant {
   id: string;
   merchant_name: string;
+  processor: string | null;
 }
 
 export default function ExpenseUpload() {
@@ -56,7 +57,7 @@ export default function ExpenseUpload() {
 
       const { data } = await supabase
         .from('merchants')
-        .select('id, merchant_name')
+        .select('id, merchant_name, processor')
         .eq('agency_id', userData.agency_id)
         .order('merchant_name', { ascending: true });
 
@@ -428,7 +429,7 @@ export default function ExpenseUpload() {
                 <SelectContent className="bg-slate-700 border-slate-600">
                   {merchants.map(merchant => (
                     <SelectItem key={merchant.id} value={merchant.id} className="text-white">
-                      {merchant.merchant_name}
+                      {merchant.merchant_name}{merchant.processor ? ` — ${merchant.processor}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

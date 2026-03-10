@@ -239,8 +239,8 @@ export default function DynamicCSVUpload() {
           agentFilter || undefined
         );
       } else if (selectedProcessor === 'Link2Pay') {
-        if (!file.name.endsWith('.xlsx')) {
-          toast.error('Link2Pay requires an .xlsx file');
+        if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+          toast.error('Link2Pay requires an Excel file (.xlsx or .xls)');
           setUploading(false);
           return;
         }

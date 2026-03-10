@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 
 interface UnmatchedExpense {
   merchantName: string;
@@ -34,6 +34,8 @@ export default function UnmatchedMerchantMapping({
   const [savingAll, setSavingAll] = useState(false);
   const [savingIndividual, setSavingIndividual] = useState<Set<string>>(new Set());
   const [initialUnmatchedCount, setInitialUnmatchedCount] = useState(unmatchedExpenses.length);
+  const [confirmingSkip, setConfirmingSkip] = useState<string | null>(null);
+  const [skipping, setSkipping] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setInitialUnmatchedCount(unmatchedExpenses.length);
@@ -148,6 +150,32 @@ export default function UnmatchedMerchantMapping({
     }
   }
 
+  async function skipMerchant(expenseName: string) {
+    setSkipping(prev => new Set(prev).add(expenseName));
+
+    try {
+      await supabase
+        .from('merchant_expenses')
+        .update({ skipped: true })
+        .eq('agency_id', agencyId)
+        .eq('merchant_name', expenseName)
+        .eq('expense_source', 'Dejavoo');
+
+      toast.success(`Skipped ${expenseName}`);
+      setConfirmingSkip(null);
+      onMappingComplete();
+    } catch (error) {
+      console.error('Error skipping merchant:', error);
+      toast.error('Failed to skip merchant');
+    } finally {
+      setSkipping(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(expenseName);
+        return newSet;
+      });
+    }
+  }
+
   if (unmatchedExpenses.length === 0) {
     return null;
   }
@@ -181,62 +209,98 @@ export default function UnmatchedMerchantMapping({
       <CardContent className="space-y-4">
         <div className="space-y-3">
           {unmatchedExpenses.map((expense, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 bg-slate-700/30 p-3 rounded-lg"
-            >
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">
-                  {expense.merchantName}
+            <div key={index}>
+              {confirmingSkip === expense.merchantName ? (
+                <div className="bg-yellow-900/30 border border-yellow-600/50 p-4 rounded-lg space-y-3">
+                  <div className="text-sm text-yellow-200">
+                    This merchant is no longer active and cannot be matched. Skip permanently?
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => skipMerchant(expense.merchantName)}
+                      disabled={skipping.has(expense.merchantName)}
+                      className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50"
+                    >
+                      {skipping.has(expense.merchantName) ? 'Skipping...' : 'Yes, Skip'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmingSkip(null)}
+                      disabled={skipping.has(expense.merchantName)}
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400">
-                  ${expense.expenseAmount.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+              ) : (
+                <div className="flex items-center gap-3 bg-slate-700/30 p-3 rounded-lg">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">
+                      {expense.merchantName}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      ${expense.expenseAmount.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <Select
+                      value={selectedMappings.get(expense.merchantName) || ''}
+                      onValueChange={(value) => handleMerchantSelect(expense.merchantName, value)}
+                    >
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue placeholder="Select merchant..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-700 max-h-[300px]">
+                        {merchants.map((merchant) => (
+                          <SelectItem
+                            key={merchant.id}
+                            value={merchant.id}
+                            className="text-white"
+                          >
+                            {merchant.merchant_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    onClick={() => saveSingleMapping(expense.merchantName)}
+                    disabled={
+                      !selectedMappings.get(expense.merchantName) ||
+                      savingIndividual.has(expense.merchantName)
+                    }
+                    className="bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
+                  >
+                    {savingIndividual.has(expense.merchantName) ? (
+                      'Saving...'
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-1" />
+                        Save
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmingSkip(expense.merchantName)}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Skip
+                  </Button>
                 </div>
-              </div>
-
-              <div className="flex-1">
-                <Select
-                  value={selectedMappings.get(expense.merchantName) || ''}
-                  onValueChange={(value) => handleMerchantSelect(expense.merchantName, value)}
-                >
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Select merchant..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 max-h-[300px]">
-                    {merchants.map((merchant) => (
-                      <SelectItem
-                        key={merchant.id}
-                        value={merchant.id}
-                        className="text-white"
-                      >
-                        {merchant.merchant_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                size="sm"
-                onClick={() => saveSingleMapping(expense.merchantName)}
-                disabled={
-                  !selectedMappings.get(expense.merchantName) ||
-                  savingIndividual.has(expense.merchantName)
-                }
-                className="bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
-              >
-                {savingIndividual.has(expense.merchantName) ? (
-                  'Saving...'
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-1" />
-                    Save Mapping
-                  </>
-                )}
-              </Button>
+              )}
             </div>
           ))}
         </div>

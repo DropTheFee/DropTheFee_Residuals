@@ -53,6 +53,7 @@ export default function ExpenseUpload() {
         .select('merchant_name, expense_amount, report_date')
         .eq('agency_id', agencyId)
         .eq('matched', false)
+        .eq('skipped', false)
         .order('expense_amount', { ascending: false });
 
       if (unmatchedRecords && unmatchedRecords.length > 0) {

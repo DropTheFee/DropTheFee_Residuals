@@ -8,6 +8,7 @@ import { Upload, FileSpreadsheet, CircleAlert as AlertCircle, CircleCheck as Che
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { parseDejavooFile, matchMerchantsToExpenses, DejavooExpenseRecord } from '@/utils/dejavooParser';
+import { parseAuthNetTxt, AuthNetExpense } from '@/utils/authnetParser';
 import UnmatchedMerchantMapping from './UnmatchedMerchantMapping';
 
 interface UploadSummary {
@@ -19,18 +20,53 @@ interface UploadSummary {
   unmatchedExpenses: DejavooExpenseRecord[];
 }
 
+interface Merchant {
+  id: string;
+  merchant_name: string;
+}
+
 export default function ExpenseUpload() {
   const [selectedVendor, setSelectedVendor] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const [currentAgencyId, setCurrentAgencyId] = useState<string>('');
+  const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
 
   const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
 
   useEffect(() => {
     checkForPendingMappings();
+    loadMerchants();
   }, []);
+
+  async function loadMerchants() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('agency_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!userData?.agency_id) return;
+
+      const { data } = await supabase
+        .from('merchants')
+        .select('id, merchant_name')
+        .eq('agency_id', userData.agency_id)
+        .order('merchant_name', { ascending: true });
+
+      if (data) {
+        setMerchants(data);
+      }
+    } catch (error) {
+      console.error('Error loading merchants:', error);
+    }
+  }
 
   async function checkForPendingMappings() {
     try {
@@ -115,9 +151,16 @@ export default function ExpenseUpload() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.endsWith('.xlsx')) {
-      toast.error('Please select a valid .xlsx file');
-      return;
+    if (selectedVendor === 'authnet') {
+      if (!selectedFile.name.endsWith('.txt')) {
+        toast.error('Please select a valid .txt file for Auth.net');
+        return;
+      }
+    } else {
+      if (!selectedFile.name.endsWith('.xlsx')) {
+        toast.error('Please select a valid .xlsx file');
+        return;
+      }
     }
 
     setFile(selectedFile);
@@ -126,6 +169,11 @@ export default function ExpenseUpload() {
   const handleUpload = async () => {
     if (!file || !selectedVendor) {
       toast.error('Please select a vendor and file');
+      return;
+    }
+
+    if (selectedVendor === 'authnet' && !selectedMerchantId) {
+      toast.error('Please select a merchant for this Auth.net file');
       return;
     }
 
@@ -158,6 +206,8 @@ export default function ExpenseUpload() {
 
       if (selectedVendor === 'dejavoo') {
         await processDejavooFile(file, agencyId);
+      } else if (selectedVendor === 'authnet') {
+        await processAuthNetFile(file, agencyId);
       } else {
         toast.error('Unsupported vendor');
       }
@@ -236,6 +286,55 @@ export default function ExpenseUpload() {
     }
   }
 
+  async function processAuthNetFile(file: File, agencyId: string) {
+    try {
+      const fileContent = await file.text();
+      const expenses = parseAuthNetTxt(fileContent);
+
+      if (expenses.length === 0) {
+        toast.error('No Transfer expenses found in Auth.net file');
+        return;
+      }
+
+      const selectedMerchant = merchants.find(m => m.id === selectedMerchantId);
+      if (!selectedMerchant) {
+        toast.error('Selected merchant not found');
+        return;
+      }
+
+      const expenseRecords = expenses.map(expense => ({
+        agency_id: agencyId,
+        merchant_id: selectedMerchantId,
+        merchant_name: selectedMerchant.merchant_name,
+        expense_source: 'Auth.net',
+        expense_amount: expense.expenseAmount,
+        report_date: expense.reportDate,
+        matched: true,
+      }));
+
+      const { error } = await supabase
+        .from('merchant_expenses')
+        .insert(expenseRecords);
+
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
+
+      toast.success(`Successfully uploaded ${expenses.length} Auth.net expense records for ${selectedMerchant.merchant_name}`);
+
+      setFile(null);
+      setSelectedMerchantId('');
+      const input = document.getElementById('expense-file-input') as HTMLInputElement;
+      if (input) input.value = '';
+
+      await loadUnmatchedExpenses();
+    } catch (error) {
+      console.error('Error processing Auth.net file:', error);
+      throw error;
+    }
+  }
+
   async function handleMappingComplete() {
     await loadUnmatchedExpenses();
   }
@@ -307,19 +406,48 @@ export default function ExpenseUpload() {
                 <SelectItem value="dejavoo" className="text-white">
                   Dejavoo
                 </SelectItem>
+                <SelectItem value="authnet" className="text-white">
+                  Auth.net
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {selectedVendor === 'authnet' && (
+            <div className="space-y-2">
+              <Label htmlFor="merchant-select" className="text-slate-300">
+                Select Merchant
+              </Label>
+              <Select value={selectedMerchantId} onValueChange={setSelectedMerchantId}>
+                <SelectTrigger
+                  id="merchant-select"
+                  className="bg-slate-700 border-slate-600 text-white"
+                >
+                  <SelectValue placeholder="Select merchant for this file" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-700 border-slate-600">
+                  {merchants.map(merchant => (
+                    <SelectItem key={merchant.id} value={merchant.id} className="text-white">
+                      {merchant.merchant_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400">
+                Auth.net files contain expenses for one merchant per file
+              </p>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="expense-file-input" className="text-slate-300 mb-2 block">
-              Upload File (.xlsx)
+              Upload File ({selectedVendor === 'authnet' ? '.txt' : '.xlsx'})
             </Label>
             <div className="flex items-center gap-4">
               <input
                 id="expense-file-input"
                 type="file"
-                accept=".xlsx"
+                accept={selectedVendor === 'authnet' ? '.txt' : '.xlsx'}
                 onChange={handleFileChange}
                 className="hidden"
               />

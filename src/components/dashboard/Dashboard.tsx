@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { User, DashboardData, PeriodStats, ReportData } from '@/types';
+import { User, DashboardData, PeriodStats } from '@/types';
 import { MetricCard } from './MetricCard';
 import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subYears, format } from 'date-fns';
+import { startOfQuarter, startOfYear, format } from 'date-fns';
 
 interface DashboardProps {
   user: User;
@@ -22,90 +22,154 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
 
   const fetchDashboardData = async () => {
     try {
-      const now = new Date();
-      
-      // Calculate date ranges
-      const currentMonthStart = startOfMonth(now);
-      const currentMonthEnd = endOfMonth(now);
-      const lastMonthStart = startOfMonth(subMonths(now, 1));
-      const lastMonthEnd = endOfMonth(subMonths(now, 1));
-      const quarterStart = startOfQuarter(now);
-      const quarterEnd = endOfQuarter(now);
-      const ytdStart = startOfYear(now);
-      const ytdEnd = endOfYear(now);
-      const lastYearStart = startOfYear(subYears(now, 1));
-      const lastYearEnd = endOfYear(subYears(now, 1));
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-      // Fetch reports based on user role
-      let query = supabase
-        .from('reports')
-        .select('*');
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('users')
+        .select('agency_id')
+        .eq('id', authUser?.id)
+        .single();
 
-      if (user.role === 'sales_rep' || user.role === 'junior_sales_rep') {
-        query = query.eq('sales_rep_id', user.id);
+      if (!profile?.agency_id) {
+        throw new Error('No agency_id found');
       }
 
-      const { data: reports, error } = await query;
+      // Get most recent report period for this agency
+      const { data: latestPeriod } = await supabase
+        .from('merchant_history')
+        .select('report_date')
+        .eq('agency_id', profile.agency_id)
+        .order('report_date', { ascending: false })
+        .limit(1)
+        .single();
 
-      if (error) throw error;
+      if (!latestPeriod) {
+        setDashboardData(null);
+        return;
+      }
 
-      // Calculate stats for each period
-      const currentMonth = calculatePeriodStats(reports as ReportData[] || [], currentMonthStart, currentMonthEnd, 'Current Month');
-      const lastMonth = calculatePeriodStats(reports as ReportData[] || [], lastMonthStart, lastMonthEnd, 'Last Month');
-      const fiscalQuarter = calculatePeriodStats(reports as ReportData[] || [], quarterStart, quarterEnd, 'This Quarter');
-      const ytd = calculatePeriodStats(reports as ReportData[] || [], ytdStart, ytdEnd, 'Year to Date');
-      const lastYear = calculatePeriodStats(reports as ReportData[] || [], lastYearStart, lastYearEnd, 'Last Year');
+      const latestDate = new Date(latestPeriod.report_date);
+      const quarterStart = startOfQuarter(latestDate);
+      const ytdStart = startOfYear(latestDate);
+
+      // Get all merchant history for the latest period
+      const { data: currentPeriodData } = await supabase
+        .from('merchant_history')
+        .select('monthly_volume, monthly_income, merchant_id')
+        .eq('agency_id', profile.agency_id)
+        .eq('report_date', latestPeriod.report_date);
+
+      // Get previous month data (if exists)
+      const prevMonthDate = new Date(latestDate);
+      prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+      const prevMonthStr = prevMonthDate.toISOString().slice(0, 7) + '-01';
+
+      const { data: prevPeriodData } = await supabase
+        .from('merchant_history')
+        .select('monthly_volume, monthly_income, merchant_id')
+        .eq('agency_id', profile.agency_id)
+        .eq('report_date', prevMonthStr);
+
+      // Get quarter data
+      const { data: quarterData } = await supabase
+        .from('merchant_history')
+        .select('monthly_volume, monthly_income, merchant_id')
+        .eq('agency_id', profile.agency_id)
+        .gte('report_date', quarterStart.toISOString().slice(0, 10));
+
+      // Get YTD data
+      const { data: ytdData } = await supabase
+        .from('merchant_history')
+        .select('monthly_volume, monthly_income, merchant_id')
+        .eq('agency_id', profile.agency_id)
+        .gte('report_date', ytdStart.toISOString().slice(0, 10));
+
+      // Calculate current month stats
+      const totalVolume = currentPeriodData?.reduce((sum, record) => sum + (record.monthly_volume || 0), 0) || 0;
+      const totalResidual = currentPeriodData?.reduce((sum, record) => sum + (record.monthly_income || 0), 0) || 0;
+      const liveMerchants = currentPeriodData?.filter(record => (record.monthly_volume || 0) > 0).length || 0;
+      const avgResidual = liveMerchants > 0 ? totalResidual / liveMerchants : 0;
+      const merchantCount = currentPeriodData?.length || 0;
+
+      // Calculate previous month stats
+      const prevTotalVolume = prevPeriodData?.reduce((sum, record) => sum + (record.monthly_volume || 0), 0) || 0;
+      const prevTotalResidual = prevPeriodData?.reduce((sum, record) => sum + (record.monthly_income || 0), 0) || 0;
+      const prevMerchantCount = prevPeriodData?.length || 0;
+
+      // Calculate quarter stats
+      const quarterVolume = quarterData?.reduce((sum, record) => sum + (record.monthly_volume || 0), 0) || 0;
+      const quarterResidual = quarterData?.reduce((sum, record) => sum + (record.monthly_income || 0), 0) || 0;
+      const quarterMerchantCount = new Set(quarterData?.map(record => record.merchant_id)).size || 0;
+
+      // Calculate YTD stats
+      const ytdVolume = ytdData?.reduce((sum, record) => sum + (record.monthly_volume || 0), 0) || 0;
+      const ytdResidual = ytdData?.reduce((sum, record) => sum + (record.monthly_income || 0), 0) || 0;
+      const ytdMerchantCount = new Set(ytdData?.map(record => record.merchant_id)).size || 0;
+
+      const currentMonth: PeriodStats = {
+        period: format(latestDate, 'MMMM yyyy'),
+        totalVolume,
+        totalResidual,
+        merchantCount,
+        averageResidual: avgResidual,
+        averageResidualPercentage: totalVolume > 0 ? (totalResidual / totalVolume) * 100 : 0,
+        liveVolume: totalVolume,
+        liveResidual: totalResidual,
+        liveMerchantCount: liveMerchants,
+      };
+
+      const lastMonth: PeriodStats = {
+        period: 'Last Month',
+        totalVolume: prevTotalVolume,
+        totalResidual: prevTotalResidual,
+        merchantCount: prevMerchantCount,
+        averageResidual: prevMerchantCount > 0 ? prevTotalResidual / prevMerchantCount : 0,
+        averageResidualPercentage: prevTotalVolume > 0 ? (prevTotalResidual / prevTotalVolume) * 100 : 0,
+        liveVolume: prevTotalVolume,
+        liveResidual: prevTotalResidual,
+        liveMerchantCount: prevMerchantCount,
+      };
+
+      const fiscalQuarter: PeriodStats = {
+        period: 'This Quarter',
+        totalVolume: quarterVolume,
+        totalResidual: quarterResidual,
+        merchantCount: quarterMerchantCount,
+        averageResidual: quarterMerchantCount > 0 ? quarterResidual / quarterMerchantCount : 0,
+        averageResidualPercentage: quarterVolume > 0 ? (quarterResidual / quarterVolume) * 100 : 0,
+        liveVolume: quarterVolume,
+        liveResidual: quarterResidual,
+        liveMerchantCount: quarterMerchantCount,
+      };
+
+      const ytd: PeriodStats = {
+        period: 'Year to Date',
+        totalVolume: ytdVolume,
+        totalResidual: ytdResidual,
+        merchantCount: ytdMerchantCount,
+        averageResidual: ytdMerchantCount > 0 ? ytdResidual / ytdMerchantCount : 0,
+        averageResidualPercentage: ytdVolume > 0 ? (ytdResidual / ytdVolume) * 100 : 0,
+        liveVolume: ytdVolume,
+        liveResidual: ytdResidual,
+        liveMerchantCount: ytdMerchantCount,
+      };
 
       setDashboardData({
         currentMonth,
         lastMonth,
         fiscalQuarter,
         ytd,
-        lastYear,
+        lastYear: ytd,
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setDashboardData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculatePeriodStats = (reports: ReportData[], startDate: Date, endDate: Date, period: string): PeriodStats => {
-    const periodReports = reports.filter(report => {
-      const reportDate = new Date(report.report_date);
-      return reportDate >= startDate && reportDate <= endDate;
-    });
-
-    let totalVolume = 0;
-    let totalResidual = 0;
-    let merchantCount = 0;
-    let liveVolume = 0;
-    let liveResidual = 0;
-    let liveMerchantCount = 0;
-
-    periodReports.forEach(report => {
-      if (report.stats) {
-        totalVolume += report.stats.totalVolume || 0;
-        totalResidual += report.stats.totalResidual || 0;
-        merchantCount += report.stats.merchantCount || 0;
-        liveVolume += report.stats.liveVolume || 0;
-        liveResidual += report.stats.liveResidual || 0;
-        liveMerchantCount += report.stats.liveMerchantCount || 0;
-      }
-    });
-
-    return {
-      period,
-      totalVolume,
-      totalResidual,
-      merchantCount,
-      averageResidual: merchantCount > 0 ? totalResidual / merchantCount : 0,
-      averageResidualPercentage: totalVolume > 0 ? (totalResidual / totalVolume) * 100 : 0,
-      liveVolume,
-      liveResidual,
-      liveMerchantCount,
-    };
-  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -171,7 +235,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
 
       {/* Current Month Stats */}
       <div>
-        <h3 className="text-lg font-semibold text-slate-300 mb-4">Current Month ({format(new Date(), 'MMMM yyyy')})</h3>
+        <h3 className="text-lg font-semibold text-slate-300 mb-4">Current Month ({currentMonth.period})</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Volume"

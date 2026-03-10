@@ -29,10 +29,10 @@ export default function ExpenseUpload() {
   const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
 
   useEffect(() => {
-    loadUnmatchedExpenses();
+    checkForPendingMappings();
   }, []);
 
-  async function loadUnmatchedExpenses() {
+  async function checkForPendingMappings() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -48,15 +48,15 @@ export default function ExpenseUpload() {
       const agencyId = userData.agency_id;
       setCurrentAgencyId(agencyId);
 
-      const { data: unmatchedRecords } = await supabase
+      const { data } = await supabase
         .from('merchant_expenses')
-        .select('merchant_name, expense_amount, report_date')
+        .select('*')
         .eq('agency_id', agencyId)
         .eq('matched', false)
         .eq('skipped', false)
         .order('expense_amount', { ascending: false });
 
-      if (unmatchedRecords && unmatchedRecords.length > 0) {
+      if (data && data.length > 0) {
         const { data: allExpenses } = await supabase
           .from('merchant_expenses')
           .select('expense_amount, matched, skipped')
@@ -68,7 +68,7 @@ export default function ExpenseUpload() {
 
         const uniqueUnmatched = Array.from(
           new Map(
-            unmatchedRecords.map(record => [
+            data.map(record => [
               record.merchant_name,
               {
                 merchantName: record.merchant_name,
@@ -90,8 +90,12 @@ export default function ExpenseUpload() {
         setUploadSummary(null);
       }
     } catch (error) {
-      console.error('Error loading unmatched expenses:', error);
+      console.error('Error checking for pending mappings:', error);
     }
+  }
+
+  async function loadUnmatchedExpenses() {
+    await checkForPendingMappings();
   }
 
   const getPreviousMonth = () => {

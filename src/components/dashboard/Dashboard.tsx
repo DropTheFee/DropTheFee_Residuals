@@ -23,6 +23,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
   const fetchDashboardData = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('1. authUser:', authUser?.id);
 
       // Get user profile
       const { data: profile } = await supabase
@@ -30,6 +31,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         .select('agency_id')
         .eq('id', authUser?.id)
         .single();
+      console.log('2. profile:', profile);
 
       if (!profile?.agency_id) {
         throw new Error('No agency_id found');
@@ -43,6 +45,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         .order('report_date', { ascending: false })
         .limit(1)
         .single();
+      console.log('3. latestPeriod:', latestPeriod);
 
       if (!latestPeriod) {
         setDashboardData(null);
@@ -54,11 +57,13 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       const ytdStart = startOfYear(latestDate);
 
       // Get all merchant history for the latest period
-      const { data: currentPeriodData } = await supabase
+      const { data: currentPeriodData, error } = await supabase
         .from('merchant_history')
         .select('monthly_volume, monthly_income, merchant_id')
         .eq('agency_id', profile.agency_id)
         .eq('report_date', latestPeriod.report_date);
+      console.log('4. currentPeriodData:', currentPeriodData);
+      console.log('5. error on currentPeriod query:', error);
 
       // Get previous month data (if exists)
       const prevMonthDate = new Date(latestDate);

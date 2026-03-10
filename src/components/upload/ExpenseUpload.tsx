@@ -59,7 +59,7 @@ export default function ExpenseUpload() {
       if (unmatchedRecords && unmatchedRecords.length > 0) {
         const { data: allExpenses } = await supabase
           .from('merchant_expenses')
-          .select('expense_amount, matched')
+          .select('expense_amount, matched, skipped')
           .eq('agency_id', agencyId);
 
         const totalRecords = allExpenses?.length || 0;
@@ -86,6 +86,8 @@ export default function ExpenseUpload() {
           unmatchedNames: uniqueUnmatched.map(e => e.merchantName),
           unmatchedExpenses: uniqueUnmatched,
         });
+      } else {
+        setUploadSummary(null);
       }
     } catch (error) {
       console.error('Error loading unmatched expenses:', error);
@@ -128,7 +130,6 @@ export default function ExpenseUpload() {
 
   async function processExpenseFile(file: File) {
     setUploading(true);
-    setUploadSummary(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -149,6 +150,7 @@ export default function ExpenseUpload() {
       }
 
       const agencyId = userData.agency_id;
+      setCurrentAgencyId(agencyId);
 
       if (selectedVendor === 'dejavoo') {
         await processDejavooFile(file, agencyId);

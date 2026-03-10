@@ -113,7 +113,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       const ytdMerchantCount = new Set(ytdData?.map(record => record.merchant_id)).size || 0;
 
       const currentMonth: PeriodStats = {
-        period: format(latestDate, 'MMMM yyyy'),
+        period: format(new Date(latestPeriod.report_date + 'T12:00:00'), 'MMMM yyyy'),
         totalVolume,
         totalResidual,
         merchantCount,

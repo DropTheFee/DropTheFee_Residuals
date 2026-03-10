@@ -28,7 +28,14 @@ export default function MerchantsTable() {
       console.log('agency_id:', profile?.agency_id);
       const { data, error } = await supabase
         .from('merchants')
-        .select('*')
+        .select(`
+          *,
+          merchant_history (
+            monthly_volume,
+            monthly_income,
+            report_date
+          )
+        `)
         .eq('agency_id', profile.agency_id)
         .order('merchant_name', { ascending: true });
       console.log('merchants result:', data, error);
@@ -197,52 +204,44 @@ export default function MerchantsTable() {
                     Merchant Name {sortBy === 'merchant_name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </TableHead>
                   <TableHead>Processor</TableHead>
-                  <TableHead onClick={() => handleSort('months_active')} className="cursor-pointer hover:bg-muted/50">
-                    Months Active {sortBy === 'months_active' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('total_lifetime_volume')} className="cursor-pointer hover:bg-muted/50 text-right">
-                    Lifetime Volume {sortBy === 'total_lifetime_volume' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('total_lifetime_income')} className="cursor-pointer hover:bg-muted/50 text-right">
-                    Lifetime Income {sortBy === 'total_lifetime_income' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </TableHead>
-                  <TableHead onClick={() => handleSort('average_monthly_income')} className="cursor-pointer hover:bg-muted/50 text-right">
-                    Avg Monthly {sortBy === 'average_monthly_income' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </TableHead>
-                  <TableHead className="text-right">Annualized</TableHead>
-                  <TableHead onClick={() => handleSort('last_report_date')} className="cursor-pointer hover:bg-muted/50">
-                    Last Activity {sortBy === 'last_report_date' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </TableHead>
+                  <TableHead className="text-right">Current Volume</TableHead>
+                  <TableHead className="text-right">Current Residual</TableHead>
+                  <TableHead>Last Activity</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAndSortedMerchants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No merchants found. Upload a CSV file to get started.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedMerchants.map((merchant) => (
-                    <TableRow key={merchant.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
-                      <TableCell>{merchant.processor || 'N/A'}</TableCell>
-                      <TableCell>{merchant.months_active || 0}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(merchant.total_lifetime_volume || 0)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(merchant.total_lifetime_income || 0)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(merchant.average_monthly_income || 0)}</TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {formatCurrency((merchant.average_monthly_income || 0) * 12)}
-                      </TableCell>
-                      <TableCell>{formatDate(merchant.last_report_date)}</TableCell>
-                      <TableCell>
-                        <Badge variant={merchant.status === 'active' ? 'default' : 'secondary'}>
-                          {merchant.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredAndSortedMerchants.map((merchant) => {
+                    const latestHistory = (merchant as any).merchant_history
+                      ?.sort((a: any, b: any) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())[0];
+                    const currentVolume = latestHistory?.monthly_volume || 0;
+                    const currentIncome = latestHistory?.monthly_income || 0;
+                    const lastActivity = latestHistory?.report_date
+                      ? new Date(latestHistory.report_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                      : 'N/A';
+
+                    return (
+                      <TableRow key={merchant.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
+                        <TableCell>{merchant.processor || 'N/A'}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(currentVolume)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(currentIncome)}</TableCell>
+                        <TableCell>{lastActivity}</TableCell>
+                        <TableCell>
+                          <Badge variant={merchant.status === 'active' ? 'default' : 'secondary'}>
+                            {merchant.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

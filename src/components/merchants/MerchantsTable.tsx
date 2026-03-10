@@ -35,6 +35,11 @@ export default function MerchantsTable() {
             monthly_volume,
             monthly_income,
             report_date
+          ),
+          merchant_expenses (
+            expense_amount,
+            report_date,
+            matched
           )
         `)
         .eq('agency_id', profile.agency_id)
@@ -226,6 +231,8 @@ export default function MerchantsTable() {
                   <TableHead>Processor</TableHead>
                   <TableHead className="text-right">Current Volume</TableHead>
                   <TableHead className="text-right">Current Residual</TableHead>
+                  <TableHead className="text-right">Expenses</TableHead>
+                  <TableHead className="text-right">Net Residual</TableHead>
                   <TableHead>Last Activity</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -233,7 +240,7 @@ export default function MerchantsTable() {
               <TableBody>
                 {filteredAndSortedMerchants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No merchants found. Upload a CSV file to get started.
                     </TableCell>
                   </TableRow>
@@ -243,9 +250,19 @@ export default function MerchantsTable() {
                       ?.sort((a: any, b: any) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())[0];
                     const currentVolume = latestHistory?.monthly_volume || 0;
                     const currentIncome = latestHistory?.monthly_income || 0;
+                    const currentReportDate = latestHistory?.report_date;
                     const lastActivity = latestHistory?.report_date
                       ? new Date(latestHistory.report_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                       : 'N/A';
+
+                    const matchedExpenses = (merchant as any).merchant_expenses?.filter(
+                      (expense: any) => expense.matched && expense.report_date === currentReportDate
+                    ) || [];
+                    const totalExpenses = matchedExpenses.reduce(
+                      (sum: number, expense: any) => sum + parseFloat(expense.expense_amount || 0),
+                      0
+                    );
+                    const netResidual = currentIncome - totalExpenses;
 
                     return (
                       <TableRow key={merchant.id} className="hover:bg-muted/50">
@@ -253,6 +270,10 @@ export default function MerchantsTable() {
                         <TableCell>{merchant.processor || 'N/A'}</TableCell>
                         <TableCell className="text-right">{formatCurrency(currentVolume)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(currentIncome)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(totalExpenses)}</TableCell>
+                        <TableCell className={`text-right font-medium ${netResidual < 0 ? 'text-red-500' : ''}`}>
+                          {formatCurrency(netResidual)}
+                        </TableCell>
                         <TableCell>{lastActivity}</TableCell>
                         <TableCell>
                           <Badge variant={merchant.status === 'active' || merchant.status === 'Open' ? 'default' : 'secondary'}>

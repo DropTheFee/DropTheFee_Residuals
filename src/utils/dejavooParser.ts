@@ -13,6 +13,35 @@ function normalizeMerchantName(name: string): string {
     .trim();
 }
 
+function columnToLetter(columnIndex: number): string {
+  let letter = '';
+  while (columnIndex >= 0) {
+    letter = String.fromCharCode((columnIndex % 26) + 65) + letter;
+    columnIndex = Math.floor(columnIndex / 26) - 1;
+  }
+  return letter;
+}
+
+function findColumnByHeader(worksheet: XLSX.WorkSheet, headerText: string, headerRow: number = 0): number | null {
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: headerRow, c: col });
+    const cell = worksheet[cellAddress];
+
+    if (cell && cell.v) {
+      const cellValue = String(cell.v).toLowerCase().trim();
+      const searchText = headerText.toLowerCase().trim();
+
+      if (cellValue.includes(searchText)) {
+        return col;
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function parseDejavooFile(file: File): Promise<DejavooExpenseRecord[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -30,12 +59,28 @@ export async function parseDejavooFile(file: File): Promise<DejavooExpenseRecord
           return;
         }
 
+        const merchantNameColIndex = findColumnByHeader(worksheet, 'Merchant DBA');
+        const totalColIndex = findColumnByHeader(worksheet, 'Total');
+
+        if (merchantNameColIndex === null) {
+          reject(new Error('Could not find "Merchant DBA" column in header row'));
+          return;
+        }
+
+        if (totalColIndex === null) {
+          reject(new Error('Could not find "Total" column in header row'));
+          return;
+        }
+
+        const merchantNameCol = columnToLetter(merchantNameColIndex);
+        const totalCol = columnToLetter(totalColIndex);
+
         const records: DejavooExpenseRecord[] = [];
         let rowIndex = 1;
 
         while (true) {
-          const merchantNameCell = `B${rowIndex}`;
-          const expenseAmountCell = `O${rowIndex}`;
+          const merchantNameCell = `${merchantNameCol}${rowIndex}`;
+          const expenseAmountCell = `${totalCol}${rowIndex}`;
 
           const merchantName = worksheet[merchantNameCell]?.v;
           const expenseAmount = worksheet[expenseAmountCell]?.v;

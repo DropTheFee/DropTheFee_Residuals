@@ -224,7 +224,7 @@ export default function MerchantsTable() {
                     const currentVolume = latestHistory?.monthly_volume || 0;
                     const currentIncome = latestHistory?.monthly_income || 0;
                     const lastActivity = latestHistory?.report_date
-                      ? new Date(latestHistory.report_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                      ? new Date(latestHistory.report_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                       : 'N/A';
 
                     return (

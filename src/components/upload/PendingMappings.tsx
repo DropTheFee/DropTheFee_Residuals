@@ -30,11 +30,16 @@ export default function PendingMappings() {
   const [agencyId, setAgencyId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
+    loadAgencyId();
   }, []);
 
-  async function loadData() {
-    setLoading(true);
+  useEffect(() => {
+    if (agencyId) {
+      loadPendingMappings();
+    }
+  }, [agencyId]);
+
+  async function loadAgencyId() {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -49,29 +54,37 @@ export default function PendingMappings() {
         .eq('auth_id', authUser.id)
         .single();
 
-      if (!profile?.agency_id) {
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+      } else {
         setLoading(false);
-        return;
       }
+    } catch (error) {
+      console.error('Error loading agency ID:', error);
+      setLoading(false);
+    }
+  }
 
-      setAgencyId(profile.agency_id);
+  async function loadPendingMappings() {
+    if (!agencyId) return;
 
+    setLoading(true);
+    try {
       const { data: pendingData } = await supabase
         .from('merchant_expenses')
         .select('*')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .eq('matched', false)
-        .eq('skipped', false)
-        .order('expense_amount', { ascending: false });
+        .eq('skipped', false);
 
-      if (pendingData) {
+      if (pendingData && pendingData.length > 0) {
         setPendingExpenses(pendingData);
       }
 
       const { data: merchantsData } = await supabase
         .from('merchants')
         .select('id, merchant_name')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .order('merchant_name');
 
       if (merchantsData) {
@@ -122,7 +135,7 @@ export default function PendingMappings() {
         .eq('expense_source', expenseSource);
 
       toast.success(`Mapping saved for ${expenseName}`);
-      await loadData();
+      await loadPendingMappings();
     } catch (error) {
       console.error('Error saving mapping:', error);
       toast.error('Failed to save mapping');
@@ -150,7 +163,7 @@ export default function PendingMappings() {
 
       toast.success(`Skipped ${expenseName}`);
       setConfirmingSkip(null);
-      await loadData();
+      await loadPendingMappings();
     } catch (error) {
       console.error('Error skipping merchant:', error);
       toast.error('Failed to skip merchant');

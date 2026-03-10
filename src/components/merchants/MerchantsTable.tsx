@@ -10,6 +10,7 @@ import { Merchant } from '@/types';
 
 export default function MerchantsTable() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [availableProcessors, setAvailableProcessors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProcessor, setFilterProcessor] = useState<string>('all');
@@ -40,6 +41,16 @@ export default function MerchantsTable() {
         .order('merchant_name', { ascending: true });
       console.log('merchants result:', data, error);
       setMerchants(data || []);
+
+      const processors = Array.from(
+        new Set(
+          (data || [])
+            .map((m) => m.processor)
+            .filter((p): p is string => p !== null && p !== undefined && p !== '')
+        )
+      ).sort();
+      setAvailableProcessors(processors);
+
       setLoading(false);
     };
     load();
@@ -177,16 +188,11 @@ export default function MerchantsTable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Processors</SelectItem>
-                <SelectItem value="Vivid Payments">Vivid Payments</SelectItem>
-                <SelectItem value="Paysafe">Paysafe</SelectItem>
-                <SelectItem value="PCS">PCS</SelectItem>
-                <SelectItem value="EPI">EPI</SelectItem>
-                <SelectItem value="Vivid">Vivid</SelectItem>
-                <SelectItem value="Link2Pay">Link2Pay</SelectItem>
-                <SelectItem value="Payarc">Payarc</SelectItem>
-                <SelectItem value="CoastalPay">CoastalPay</SelectItem>
-                <SelectItem value="BCMS/Card-X">BCMS/Card-X</SelectItem>
-                <SelectItem value="Paya ACH">Paya ACH</SelectItem>
+                {availableProcessors.map((processor) => (
+                  <SelectItem key={processor} value={processor}>
+                    {processor}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>

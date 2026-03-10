@@ -122,7 +122,7 @@ export default function ExpenseUpload() {
         expense_source: 'Dejavoo',
         expense_amount: expense.expenseAmount,
         report_date: reportDate,
-        matched: expense.matched === true,
+        matched: expense.matched ? true : false,
       }));
 
       const { error } = await supabase

@@ -347,7 +347,6 @@ export default function DynamicCSVUpload() {
             monthly_volume: parseFloat(merchant.volume as string) || 0,
             monthly_income: residualValue,
             rep_payout: merchant.repPayout ? parseFloat(merchant.repPayout as string) || 0 : 0,
-            net_income: residualValue,
           };
 
           console.log('Merchant history upsert payload:', historyPayload);

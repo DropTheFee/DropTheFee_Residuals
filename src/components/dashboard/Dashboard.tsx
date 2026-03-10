@@ -59,7 +59,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       // Get all merchant history for the latest period
       const { data: currentPeriodData, error } = await supabase
         .from('merchant_history')
-        .select('monthly_volume, monthly_income, merchant_id')
+        .select('monthly_volume, monthly_income, merchant_id, agency_id')
         .eq('agency_id', profile.agency_id)
         .eq('report_date', latestPeriod.report_date);
       console.log('4. currentPeriodData:', currentPeriodData);

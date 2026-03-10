@@ -230,7 +230,9 @@ export default function DynamicCSVUpload() {
       setProgress(70);
 
       const currentDate = new Date();
-      const periodMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const periodMonth = `${year}-${month}-01`;
 
       for (const merchant of result.data) {
         const merchantPayload = {
@@ -266,13 +268,15 @@ export default function DynamicCSVUpload() {
           .maybeSingle();
 
         if (merchantRecord) {
+          const residualValue = parseFloat(merchant.residual as string) || 0;
           const historyPayload = {
             merchant_id: merchantRecord.id,
+            agency_id: agencyId,
             report_date: periodMonth,
             monthly_volume: parseFloat(merchant.volume as string) || 0,
-            monthly_income: parseFloat(merchant.residual as string) || 0,
+            monthly_income: residualValue,
             rep_payout: merchant.repPayout ? parseFloat(merchant.repPayout as string) || 0 : 0,
-            agency_income: null,
+            net_income: residualValue,
           };
 
           console.log('Merchant history upsert payload:', historyPayload);

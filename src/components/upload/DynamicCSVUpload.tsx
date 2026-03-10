@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { parseFileWithMapping, extractFileHeaders } from '@/utils/dynamicParser';
 import { parsePaysafeFile } from '@/utils/paysafeParser';
 import { parseLink2PayFile } from '@/utils/link2payParser';
+import { parsePayarcFile } from '@/utils/payarcParser';
 import { ColumnMapper } from './ColumnMapper';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -100,6 +101,7 @@ export default function DynamicCSVUpload() {
         { processor_name: 'Paysafe', isBuiltIn: true },
         { processor_name: 'PCS', isBuiltIn: true },
         { processor_name: 'Link2Pay', isBuiltIn: true },
+        { processor_name: 'Payarc', isBuiltIn: true },
       ];
 
       const allProcessors = [
@@ -246,6 +248,14 @@ export default function DynamicCSVUpload() {
         }
 
         result = await parseLink2PayFile(file);
+      } else if (selectedProcessor === 'Payarc') {
+        if (!file.name.endsWith('.csv')) {
+          toast.error('Payarc requires a CSV file');
+          setUploading(false);
+          return;
+        }
+
+        result = await parsePayarcFile(file);
       } else {
         result = await parseFileWithMapping(file, selectedProcessor, undefined, {
           mid_column: processor.mid_column,
@@ -595,7 +605,7 @@ export default function DynamicCSVUpload() {
             Supported formats: CSV (.csv), Excel (.xlsx, .xls)
           </p>
           <p className="text-slate-400 text-sm">
-            Note: Paysafe, PCS, and Link2Pay require .xlsx files only
+            Note: Paysafe and PCS require .xlsx files, Link2Pay requires .xlsx or .xls files, Payarc requires .csv files
           </p>
         </CardContent>
       </Card>

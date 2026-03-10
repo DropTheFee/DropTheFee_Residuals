@@ -33,6 +33,11 @@ export default function UnmatchedMerchantMapping({
   const [selectedMappings, setSelectedMappings] = useState<Map<string, string>>(new Map());
   const [savingAll, setSavingAll] = useState(false);
   const [savingIndividual, setSavingIndividual] = useState<Set<string>>(new Set());
+  const [initialUnmatchedCount, setInitialUnmatchedCount] = useState(unmatchedExpenses.length);
+
+  useEffect(() => {
+    setInitialUnmatchedCount(unmatchedExpenses.length);
+  }, [unmatchedExpenses.length]);
 
   useEffect(() => {
     loadMerchants();
@@ -149,10 +154,31 @@ export default function UnmatchedMerchantMapping({
     return null;
   }
 
+  const mappedCount = initialUnmatchedCount - unmatchedExpenses.length;
+  const progressPercentage = initialUnmatchedCount > 0
+    ? Math.round((mappedCount / initialUnmatchedCount) * 100)
+    : 0;
+
   return (
     <Card className="bg-slate-800/50 border-slate-700">
       <CardHeader>
-        <CardTitle className="text-white">Unmatched Merchants — Action Required</CardTitle>
+        <div className="space-y-2">
+          <CardTitle className="text-white">Unmatched Merchants — Action Required</CardTitle>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">
+              {mappedCount} of {initialUnmatchedCount} merchants mapped
+            </span>
+            <span className="text-cyan-400 font-semibold">
+              {progressPercentage}% complete
+            </span>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-2">
+            <div
+              className="bg-cyan-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">

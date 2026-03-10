@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useBlocker } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,39 @@ export default function ExpenseUpload() {
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const [currentAgencyId, setCurrentAgencyId] = useState<string>('');
   const [currentReportDate, setCurrentReportDate] = useState<string>('');
+
+  const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnmatchedMerchants && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnmatchedMerchants) {
+        e.preventDefault();
+        e.returnValue = 'You have unmatched merchants that need mapping. If you leave, your progress will be lost.';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnmatchedMerchants]);
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      const confirmNavigation = window.confirm(
+        'You have unmatched merchants that need mapping. If you leave, your progress will be lost.\n\nAre you sure you want to leave?'
+      );
+      if (confirmNavigation) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker]);
 
   const getPreviousMonth = () => {
     const now = new Date();
@@ -149,18 +183,24 @@ export default function ExpenseUpload() {
       const matchedCount = matchedExpenses.filter(e => e.matched).length;
       const unmatchedExpenses = matchedExpenses.filter(e => !e.matched);
 
+      const initialUnmatchedCount = unmatchedExpenses.length;
+
       setCurrentAgencyId(agencyId);
       setCurrentReportDate(reportDate);
       setUploadSummary({
         totalRecords: expenses.length,
         totalAmount,
         matchedCount,
-        unmatchedCount: unmatchedExpenses.length,
+        unmatchedCount: initialUnmatchedCount,
         unmatchedNames: unmatchedExpenses.map(e => e.merchantName),
         unmatchedExpenses: unmatchedExpenses,
       });
 
-      toast.success(`Successfully uploaded ${expenses.length} expense records`);
+      if (initialUnmatchedCount > 0) {
+        toast.warning(`Upload complete. ${initialUnmatchedCount} merchants need mapping.`);
+      } else {
+        toast.success(`Successfully uploaded ${expenses.length} expense records`);
+      }
 
       setFile(null);
       const input = document.getElementById('expense-file-input') as HTMLInputElement;
@@ -306,11 +346,16 @@ export default function ExpenseUpload() {
 
           <Button
             onClick={handleUpload}
-            disabled={!file || !selectedVendor || uploading}
+            disabled={!file || !selectedVendor || uploading || hasUnmatchedMerchants}
             className="w-full bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
           >
             {uploading ? 'Uploading...' : 'Upload & Process'}
           </Button>
+          {hasUnmatchedMerchants && (
+            <div className="text-sm text-yellow-400 text-center">
+              Complete merchant mappings below before uploading another file
+            </div>
+          )}
         </CardContent>
       </Card>
 

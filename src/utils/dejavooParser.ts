@@ -127,7 +127,7 @@ export async function matchMerchantsToExpenses(
     return {
       ...expense,
       merchantId,
-      matched: merchantId !== null,
+      matched: Boolean(merchantId !== null),
     };
   });
 }

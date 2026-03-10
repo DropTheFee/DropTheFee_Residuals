@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PendingMappings from '@/components/upload/PendingMappings';
 import DynamicCSVUpload from '@/components/upload/DynamicCSVUpload';
 import ExpenseUpload from '@/components/upload/ExpenseUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,8 @@ export default function Upload() {
 
   return (
     <div className="space-y-8">
+      <PendingMappings />
+
       <DynamicCSVUpload />
 
       <div className="relative py-8">

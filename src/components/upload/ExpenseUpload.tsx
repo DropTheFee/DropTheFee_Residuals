@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -19,28 +18,30 @@ interface UploadSummary {
 
 export default function ExpenseUpload() {
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-    },
-    multiple: false,
-    onDrop: handleFileDrop,
-  });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
 
-  async function handleFileDrop(files: File[]) {
-    if (files.length === 0) return;
-
-    if (!selectedVendor) {
-      toast.error('Please select an expense vendor first');
+    if (!selectedFile.name.endsWith('.xlsx')) {
+      toast.error('Please select a valid .xlsx file');
       return;
     }
 
-    const file = files[0];
+    setFile(selectedFile);
+  };
+
+  const handleUpload = async () => {
+    if (!file || !selectedVendor) {
+      toast.error('Please select a vendor and file');
+      return;
+    }
+
     await processExpenseFile(file);
-  }
+  };
 
   async function processExpenseFile(file: File) {
     setUploading(true);
@@ -102,19 +103,22 @@ export default function ExpenseUpload() {
 
       const expenseRecords = matchedExpenses.map(expense => ({
         agency_id: agencyId,
-        merchant_id: expense.merchantId,
+        merchant_id: expense.merchantId || null,
         merchant_name: expense.merchantName,
         expense_source: 'Dejavoo',
         expense_amount: expense.expenseAmount,
         report_date: reportDate,
-        matched: expense.matched,
+        matched: expense.matched === true,
       }));
 
       const { error } = await supabase
         .from('merchant_expenses')
         .insert(expenseRecords);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
 
       const totalAmount = expenses.reduce((sum, exp) => sum + exp.expenseAmount, 0);
       const matchedCount = matchedExpenses.filter(e => e.matched).length;
@@ -129,6 +133,10 @@ export default function ExpenseUpload() {
       });
 
       toast.success(`Successfully uploaded ${expenses.length} expense records`);
+
+      setFile(null);
+      const input = document.getElementById('expense-file-input') as HTMLInputElement;
+      if (input) input.value = '';
     } catch (error) {
       console.error('Error processing Dejavoo file:', error);
       throw error;
@@ -164,31 +172,48 @@ export default function ExpenseUpload() {
             </Select>
           </div>
 
-          {selectedVendor && (
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive
-                  ? 'border-cyan-400 bg-cyan-400/10'
-                  : 'border-slate-600 hover:border-slate-500 bg-slate-700/30'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-              <p className="text-slate-300 mb-2">
-                {isDragActive
-                  ? 'Drop the file here'
-                  : 'Drag and drop an Excel file, or click to select'}
-              </p>
-              <p className="text-sm text-slate-500">Only .xlsx files are supported</p>
+          <div>
+            <Label htmlFor="expense-file-input" className="text-slate-300 mb-2 block">
+              Upload File (.xlsx)
+            </Label>
+            <div className="flex items-center gap-4">
+              <input
+                id="expense-file-input"
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById('expense-file-input')?.click()}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Choose File
+              </Button>
+              {file && (
+                <div className="flex items-center gap-2 text-sm text-slate-300">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>{file.name}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {uploading && (
             <div className="flex items-center justify-center p-4">
               <div className="text-slate-300">Processing expense file...</div>
             </div>
           )}
+
+          <Button
+            onClick={handleUpload}
+            disabled={!file || !selectedVendor || uploading}
+            className="w-full bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
+          >
+            {uploading ? 'Uploading...' : 'Upload & Process'}
+          </Button>
         </CardContent>
       </Card>
 

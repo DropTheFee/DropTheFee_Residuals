@@ -55,7 +55,7 @@ export function parseDejavooFile(file: File): Promise<DejavooExpenseRecord[]> {
           const cell = worksheet[cellAddress];
           const headerValue = cell?.v?.toString().toLowerCase() || '';
 
-          if (headerValue.includes('merchant') && headerValue.includes('name')) {
+          if (headerValue.includes('merchant') && headerValue.includes('dba')) {
             merchantNameColIndex = col;
           }
           if (headerValue === 'total') {
@@ -64,7 +64,7 @@ export function parseDejavooFile(file: File): Promise<DejavooExpenseRecord[]> {
         }
 
         if (merchantNameColIndex === -1 || totalColIndex === -1) {
-          reject(new Error('Required columns not found. Expected "Merchant Name" and "Total" columns.'));
+          reject(new Error('Required columns not found. Expected "Merchant DBA" and "Total" columns.'));
           return;
         }
 

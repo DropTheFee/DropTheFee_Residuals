@@ -249,7 +249,7 @@ export default function MerchantsTable() {
                         <TableCell className="text-right font-medium">{formatCurrency(currentIncome)}</TableCell>
                         <TableCell>{lastActivity}</TableCell>
                         <TableCell>
-                          <Badge variant={merchant.status === 'active' ? 'default' : 'secondary'}>
+                          <Badge variant={merchant.status === 'active' || merchant.status === 'Open' ? 'default' : 'secondary'}>
                             {merchant.status}
                           </Badge>
                         </TableCell>

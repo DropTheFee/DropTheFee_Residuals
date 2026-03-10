@@ -89,11 +89,23 @@ export default function MerchantsTable() {
       return aValue < bValue ? 1 : -1;
     });
 
+  const totalCurrentIncome = merchants.reduce((sum, merchant) => {
+    const latest = (merchant as any).merchant_history
+      ?.sort((a: any, b: any) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())[0];
+    return sum + (latest?.monthly_income || 0);
+  }, 0);
+
+  const totalCurrentVolume = merchants.reduce((sum, merchant) => {
+    const latest = (merchant as any).merchant_history
+      ?.sort((a: any, b: any) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime())[0];
+    return sum + (latest?.monthly_volume || 0);
+  }, 0);
+
   const totalStats = {
     totalMerchants: filteredAndSortedMerchants.length,
-    totalLifetimeIncome: filteredAndSortedMerchants.reduce((sum, m) => sum + (m.total_lifetime_income || 0), 0),
-    totalMonthlyAvg: filteredAndSortedMerchants.reduce((sum, m) => sum + (m.average_monthly_income || 0), 0),
-    totalAnnualized: filteredAndSortedMerchants.reduce((sum, m) => sum + ((m.average_monthly_income || 0) * 12), 0)
+    totalCurrentIncome: totalCurrentIncome,
+    totalCurrentVolume: totalCurrentVolume,
+    totalAnnualized: totalCurrentIncome * 12
   };
 
   if (loading) {
@@ -116,27 +128,27 @@ export default function MerchantsTable() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Lifetime Income</CardTitle>
+            <CardTitle className="text-sm font-medium">Current Month Income</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalStats.totalLifetimeIncome)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalStats.totalCurrentIncome)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Average</CardTitle>
+            <CardTitle className="text-sm font-medium">Current Month Volume</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalStats.totalMonthlyAvg)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalStats.totalCurrentVolume)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Annualized Value</CardTitle>
+            <CardTitle className="text-sm font-medium">Annualized Income</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

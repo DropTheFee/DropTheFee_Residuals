@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CircleAlert as AlertCircle, CircleCheck as CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { parseDejavooFile, matchMerchantsToExpenses } from '@/utils/dejavooParser';

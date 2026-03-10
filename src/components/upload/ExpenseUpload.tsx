@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useBlocker } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -29,36 +29,16 @@ export default function ExpenseUpload() {
 
   const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
 
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      Boolean(hasUnmatchedMerchants && currentLocation.pathname !== nextLocation.pathname)
-  );
-
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnmatchedMerchants) {
-        e.preventDefault();
-        e.returnValue = 'You have unmatched merchants that need mapping. If you leave, your progress will be lost.';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnmatchedMerchants]);
-
-  useEffect(() => {
-    if (blocker && blocker.state === 'blocked') {
-      const confirmNavigation = window.confirm(
-        'You have unmatched merchants that need mapping. If you leave, your progress will be lost.\n\nAre you sure you want to leave?'
-      );
-      if (confirmNavigation && blocker.proceed) {
-        blocker.proceed();
-      } else if (blocker.reset) {
-        blocker.reset();
-      }
+    if (hasUnmatchedMerchants) {
+      window.onbeforeunload = () => "You have unmatched merchants that need mapping. If you leave, your progress will be lost.";
+    } else {
+      window.onbeforeunload = null;
     }
-  }, [blocker]);
+    return () => {
+      window.onbeforeunload = null;
+    };
+  }, [hasUnmatchedMerchants]);
 
   const getPreviousMonth = () => {
     const now = new Date();

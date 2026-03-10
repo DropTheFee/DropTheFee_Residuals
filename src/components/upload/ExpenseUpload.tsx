@@ -22,6 +22,19 @@ export default function ExpenseUpload() {
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
 
+  const getPreviousMonth = () => {
+    const now = new Date();
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return {
+      month: prevMonth.getMonth() + 1,
+      year: prevMonth.getFullYear(),
+    };
+  };
+
+  const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
+  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -99,7 +112,8 @@ export default function ExpenseUpload() {
         merchants || []
       );
 
-      const reportDate = new Date().toISOString().split('T')[0];
+      const month = String(selectedMonth).padStart(2, '0');
+      const reportDate = `${selectedYear}-${month}-01`;
 
       const expenseRecords = matchedExpenses.map(expense => ({
         agency_id: agencyId,
@@ -153,6 +167,48 @@ export default function ExpenseUpload() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div>
+            <Label htmlFor="expense-report-period" className="text-slate-300 mb-2 block">
+              Report Period
+            </Label>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectItem value="1" className="text-white">January</SelectItem>
+                    <SelectItem value="2" className="text-white">February</SelectItem>
+                    <SelectItem value="3" className="text-white">March</SelectItem>
+                    <SelectItem value="4" className="text-white">April</SelectItem>
+                    <SelectItem value="5" className="text-white">May</SelectItem>
+                    <SelectItem value="6" className="text-white">June</SelectItem>
+                    <SelectItem value="7" className="text-white">July</SelectItem>
+                    <SelectItem value="8" className="text-white">August</SelectItem>
+                    <SelectItem value="9" className="text-white">September</SelectItem>
+                    <SelectItem value="10" className="text-white">October</SelectItem>
+                    <SelectItem value="11" className="text-white">November</SelectItem>
+                    <SelectItem value="12" className="text-white">December</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectItem value="2023" className="text-white">2023</SelectItem>
+                    <SelectItem value="2024" className="text-white">2024</SelectItem>
+                    <SelectItem value="2025" className="text-white">2025</SelectItem>
+                    <SelectItem value="2026" className="text-white">2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="vendor" className="text-slate-300">
               Expense Vendor

@@ -589,26 +589,6 @@ export default function DynamicCSVUpload() {
           </Button>
         </CardContent>
       </Card>
-
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">Instructions</CardTitle>
-        </CardHeader>
-        <CardContent className="text-slate-300 space-y-2">
-          <p>1. Select the report period (month and year)</p>
-          <p>2. Select the processor from the dropdown</p>
-          <p>3. For Paysafe/PCS: optionally enter an Oracle Agent Number to filter</p>
-          <p>4. Click "Choose File" to select your file</p>
-          <p>5. If using a custom processor for the first time, you'll be asked to map columns</p>
-          <p>6. Click "Upload & Process" to import the data</p>
-          <p className="text-slate-400 text-sm mt-4">
-            Supported formats: CSV (.csv), Excel (.xlsx, .xls)
-          </p>
-          <p className="text-slate-400 text-sm">
-            Note: Paysafe and PCS require .xlsx files, Link2Pay requires .xlsx or .xls files, Payarc requires .csv files
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

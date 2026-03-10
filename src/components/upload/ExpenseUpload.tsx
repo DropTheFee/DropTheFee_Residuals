@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, FileSpreadsheet, CircleAlert as AlertCircle, CircleCheck as CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { parseDejavooFile, matchMerchantsToExpenses } from '@/utils/dejavooParser';
+import { parseDejavooFile, matchMerchantsToExpenses, DejavooExpenseRecord } from '@/utils/dejavooParser';
+import UnmatchedMerchantMapping from './UnmatchedMerchantMapping';
 
 interface UploadSummary {
   totalRecords: number;
@@ -14,6 +15,7 @@ interface UploadSummary {
   matchedCount: number;
   unmatchedCount: number;
   unmatchedNames: string[];
+  unmatchedExpenses: DejavooExpenseRecord[];
 }
 
 export default function ExpenseUpload() {
@@ -21,6 +23,8 @@ export default function ExpenseUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
+  const [currentAgencyId, setCurrentAgencyId] = useState<string>('');
+  const [currentReportDate, setCurrentReportDate] = useState<string>('');
 
   const getPreviousMonth = () => {
     const now = new Date();
@@ -107,9 +111,16 @@ export default function ExpenseUpload() {
         .select('id, merchant_name')
         .eq('agency_id', agencyId);
 
+      const { data: savedMappings } = await supabase
+        .from('expense_name_mappings')
+        .select('expense_name, merchant_id')
+        .eq('agency_id', agencyId)
+        .eq('expense_source', 'Dejavoo');
+
       const matchedExpenses = await matchMerchantsToExpenses(
         expenses,
-        merchants || []
+        merchants || [],
+        savedMappings || []
       );
 
       const month = String(selectedMonth).padStart(2, '0');
@@ -138,12 +149,15 @@ export default function ExpenseUpload() {
       const matchedCount = matchedExpenses.filter(e => e.matched).length;
       const unmatchedExpenses = matchedExpenses.filter(e => !e.matched);
 
+      setCurrentAgencyId(agencyId);
+      setCurrentReportDate(reportDate);
       setUploadSummary({
         totalRecords: expenses.length,
         totalAmount,
         matchedCount,
         unmatchedCount: unmatchedExpenses.length,
         unmatchedNames: unmatchedExpenses.map(e => e.merchantName),
+        unmatchedExpenses: unmatchedExpenses,
       });
 
       toast.success(`Successfully uploaded ${expenses.length} expense records`);
@@ -154,6 +168,33 @@ export default function ExpenseUpload() {
     } catch (error) {
       console.error('Error processing Dejavoo file:', error);
       throw error;
+    }
+  }
+
+  async function handleMappingComplete() {
+    if (!currentAgencyId || !currentReportDate) return;
+
+    const { data: expenses } = await supabase
+      .from('merchant_expenses')
+      .select('merchant_name, expense_amount, matched')
+      .eq('agency_id', currentAgencyId)
+      .eq('expense_source', 'Dejavoo')
+      .eq('report_date', currentReportDate);
+
+    if (expenses) {
+      const unmatchedExpenses = expenses.filter(e => !e.matched);
+      const matchedCount = expenses.filter(e => e.matched).length;
+
+      setUploadSummary(prev => prev ? {
+        ...prev,
+        matchedCount,
+        unmatchedCount: unmatchedExpenses.length,
+        unmatchedNames: unmatchedExpenses.map(e => e.merchant_name),
+        unmatchedExpenses: unmatchedExpenses.map(e => ({
+          merchantName: e.merchant_name,
+          expenseAmount: Number(e.expense_amount),
+        })),
+      } : null);
     }
   }
 
@@ -311,31 +352,17 @@ export default function ExpenseUpload() {
                 </div>
               </div>
             </div>
-
-            {uploadSummary.unmatchedCount > 0 && (
-              <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
-                <div className="flex items-start gap-2 mb-2">
-                  <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
-                  <div className="text-sm font-medium text-yellow-300">
-                    Unmatched Merchants ({uploadSummary.unmatchedCount})
-                  </div>
-                </div>
-                <div className="ml-7 space-y-1">
-                  {uploadSummary.unmatchedNames.slice(0, 10).map((name, index) => (
-                    <div key={index} className="text-sm text-slate-300">
-                      {name}
-                    </div>
-                  ))}
-                  {uploadSummary.unmatchedNames.length > 10 && (
-                    <div className="text-sm text-slate-400 italic">
-                      And {uploadSummary.unmatchedNames.length - 10} more...
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+      )}
+
+      {uploadSummary && uploadSummary.unmatchedCount > 0 && (
+        <UnmatchedMerchantMapping
+          unmatchedExpenses={uploadSummary.unmatchedExpenses}
+          agencyId={currentAgencyId}
+          reportDate={currentReportDate}
+          onMappingComplete={handleMappingComplete}
+        />
       )}
     </div>
   );

@@ -50,14 +50,28 @@ export async function parseDejavooFile(file: File): Promise<DejavooExpenseRecord
 
 export async function matchMerchantsToExpenses(
   expenses: DejavooExpenseRecord[],
-  existingMerchants: Array<{ id: string; merchant_name: string }>
+  existingMerchants: Array<{ id: string; merchant_name: string }>,
+  savedMappings?: Array<{ expense_name: string; merchant_id: string }>
 ): Promise<Array<DejavooExpenseRecord & { merchantId: string | null; matched: boolean }>> {
+  const savedMappingMap = new Map<string, string>();
+  if (savedMappings) {
+    savedMappings.forEach(m => {
+      savedMappingMap.set(m.expense_name, m.merchant_id);
+    });
+  }
+
   const merchantMap = new Map<string, string>();
   existingMerchants.forEach(m => {
     merchantMap.set(normalizeMerchantName(m.merchant_name), m.id);
   });
+
   return expenses.map(expense => {
+    const savedMerchantId = savedMappingMap.get(expense.merchantName);
+    if (savedMerchantId) {
+      return { ...expense, merchantId: savedMerchantId, matched: true };
+    }
+
     const merchantId = merchantMap.get(normalizeMerchantName(expense.merchantName)) || null;
-    return { ...expense, merchantId, matched: merchantId !== null };
+    return { ...expense, merchantId, matched: Boolean(merchantId !== null) };
   });
 }

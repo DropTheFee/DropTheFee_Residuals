@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { parseFileWithMapping, extractFileHeaders } from '@/utils/dynamicParser';
+import { parsePaysafeFile } from '@/utils/paysafeParser';
 import { ColumnMapper } from './ColumnMapper';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ export default function DynamicCSVUpload() {
   const [showMapper, setShowMapper] = useState(false);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [headerRowNumber, setHeaderRowNumber] = useState(0);
+  const [agentFilter, setAgentFilter] = useState<string>('');
 
   const getPreviousMonth = () => {
     const now = new Date();
@@ -92,7 +94,29 @@ export default function DynamicCSVUpload() {
         .order('processor_name');
 
       if (error) throw error;
-      setProcessors(data || []);
+
+      const builtInProcessors = [
+        { processor_name: 'Paysafe', isBuiltIn: true },
+        { processor_name: 'PCS', isBuiltIn: true },
+      ];
+
+      const allProcessors = [
+        ...builtInProcessors.map(p => ({
+          id: p.processor_name,
+          processor_name: p.processor_name,
+          mid_column: 'built-in',
+          merchant_name_column: null,
+          volume_column: null,
+          residual_column: null,
+          status_column: null,
+          rep_payout_column: null,
+          dba_column: null,
+          header_row_number: 2,
+        })),
+        ...(data || [])
+      ];
+
+      setProcessors(allProcessors);
     } catch (error) {
       console.error('Error fetching processors:', error);
       toast.error('Failed to load processors');
@@ -178,7 +202,7 @@ export default function DynamicCSVUpload() {
 
     const processor = processors.find(p => p.processor_name === selectedProcessor);
 
-    if (!processor || !processor.mid_column) {
+    if (!processor || (!processor.mid_column && processor.mid_column !== 'built-in')) {
       if (!showMapper) {
         try {
           const headers = await extractFileHeaders(file, headerRowNumber);
@@ -198,16 +222,32 @@ export default function DynamicCSVUpload() {
     try {
       setProgress(20);
 
-      const result = await parseFileWithMapping(file, selectedProcessor, undefined, {
-        mid_column: processor.mid_column,
-        merchant_name_column: processor.merchant_name_column,
-        volume_column: processor.volume_column,
-        residual_column: processor.residual_column,
-        status_column: processor.status_column,
-        rep_payout_column: processor.rep_payout_column,
-        dba_column: processor.dba_column,
-        header_row_number: processor.header_row_number,
-      });
+      let result;
+
+      if (selectedProcessor === 'Paysafe' || selectedProcessor === 'PCS') {
+        if (!file.name.endsWith('.xlsx')) {
+          toast.error(`${selectedProcessor} requires an .xlsx file`);
+          setUploading(false);
+          return;
+        }
+
+        result = await parsePaysafeFile(
+          file,
+          selectedProcessor as 'Paysafe' | 'PCS',
+          agentFilter || undefined
+        );
+      } else {
+        result = await parseFileWithMapping(file, selectedProcessor, undefined, {
+          mid_column: processor.mid_column,
+          merchant_name_column: processor.merchant_name_column,
+          volume_column: processor.volume_column,
+          residual_column: processor.residual_column,
+          status_column: processor.status_column,
+          rep_payout_column: processor.rep_payout_column,
+          dba_column: processor.dba_column,
+          header_row_number: processor.header_row_number,
+        });
+      }
 
       setProgress(40);
 
@@ -302,9 +342,18 @@ export default function DynamicCSVUpload() {
 
       setProgress(100);
 
-      toast.success(`Successfully uploaded ${result.data.length} merchants`);
+      const totalVolume = result.data.reduce((sum, m) => sum + m.volume, 0);
+      const totalResidual = result.data.reduce((sum, m) => sum + m.residual, 0);
+
+      toast.success(
+        `Successfully uploaded ${result.data.length} merchants\n` +
+        `Total Volume: $${totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+        `Total Residual: $${totalResidual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      );
+
       setFile(null);
       setSelectedProcessor('');
+      setAgentFilter('');
 
       const input = document.getElementById('file-input') as HTMLInputElement;
       if (input) input.value = '';
@@ -451,12 +500,29 @@ export default function DynamicCSVUpload() {
                     className="text-white"
                   >
                     {processor.processor_name}
-                    {!processor.mid_column && ' (Not configured)'}
+                    {processor.mid_column === 'built-in' && ' (XLSX only)'}
+                    {!processor.mid_column && processor.mid_column !== 'built-in' && ' (Not configured)'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {(selectedProcessor === 'Paysafe' || selectedProcessor === 'PCS') && (
+            <div>
+              <Label htmlFor="agent-filter" className="text-slate-300 mb-2 block">
+                Oracle Agent Number (Optional - leave blank for all)
+              </Label>
+              <Input
+                id="agent-filter"
+                type="text"
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                placeholder="Enter agent number to filter"
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+          )}
 
           <div>
             <Label htmlFor="file-input" className="text-slate-300 mb-2 block">
@@ -509,12 +575,17 @@ export default function DynamicCSVUpload() {
           <CardTitle className="text-white">Instructions</CardTitle>
         </CardHeader>
         <CardContent className="text-slate-300 space-y-2">
-          <p>1. Select the processor from the dropdown</p>
-          <p>2. Click "Choose File" to select your CSV or Excel file</p>
-          <p>3. If this is the first time uploading for this processor, you'll be asked to map columns</p>
-          <p>4. Click "Upload & Process" to import the data</p>
+          <p>1. Select the report period (month and year)</p>
+          <p>2. Select the processor from the dropdown</p>
+          <p>3. For Paysafe/PCS: optionally enter an Oracle Agent Number to filter</p>
+          <p>4. Click "Choose File" to select your file</p>
+          <p>5. If using a custom processor for the first time, you'll be asked to map columns</p>
+          <p>6. Click "Upload & Process" to import the data</p>
           <p className="text-slate-400 text-sm mt-4">
             Supported formats: CSV (.csv), Excel (.xlsx, .xls)
+          </p>
+          <p className="text-slate-400 text-sm">
+            Note: Paysafe and PCS require .xlsx files only
           </p>
         </CardContent>
       </Card>

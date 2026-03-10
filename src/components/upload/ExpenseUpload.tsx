@@ -25,20 +25,71 @@ export default function ExpenseUpload() {
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const [currentAgencyId, setCurrentAgencyId] = useState<string>('');
-  const [currentReportDate, setCurrentReportDate] = useState<string>('');
 
   const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
 
   useEffect(() => {
-    if (hasUnmatchedMerchants) {
-      window.onbeforeunload = () => "You have unmatched merchants that need mapping. If you leave, your progress will be lost.";
-    } else {
-      window.onbeforeunload = null;
+    loadUnmatchedExpenses();
+  }, []);
+
+  async function loadUnmatchedExpenses() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('agency_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!userData?.agency_id) return;
+
+      const agencyId = userData.agency_id;
+      setCurrentAgencyId(agencyId);
+
+      const { data: unmatchedRecords } = await supabase
+        .from('merchant_expenses')
+        .select('merchant_name, expense_amount, report_date')
+        .eq('agency_id', agencyId)
+        .eq('matched', false)
+        .order('expense_amount', { ascending: false });
+
+      if (unmatchedRecords && unmatchedRecords.length > 0) {
+        const { data: allExpenses } = await supabase
+          .from('merchant_expenses')
+          .select('expense_amount, matched')
+          .eq('agency_id', agencyId);
+
+        const totalRecords = allExpenses?.length || 0;
+        const totalAmount = allExpenses?.reduce((sum, e) => sum + Number(e.expense_amount), 0) || 0;
+        const matchedCount = allExpenses?.filter(e => e.matched).length || 0;
+
+        const uniqueUnmatched = Array.from(
+          new Map(
+            unmatchedRecords.map(record => [
+              record.merchant_name,
+              {
+                merchantName: record.merchant_name,
+                expenseAmount: Number(record.expense_amount),
+              }
+            ])
+          ).values()
+        );
+
+        setUploadSummary({
+          totalRecords,
+          totalAmount,
+          matchedCount,
+          unmatchedCount: uniqueUnmatched.length,
+          unmatchedNames: uniqueUnmatched.map(e => e.merchantName),
+          unmatchedExpenses: uniqueUnmatched,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading unmatched expenses:', error);
     }
-    return () => {
-      window.onbeforeunload = null;
-    };
-  }, [hasUnmatchedMerchants]);
+  }
 
   const getPreviousMonth = () => {
     const now = new Date();
@@ -159,22 +210,7 @@ export default function ExpenseUpload() {
         throw error;
       }
 
-      const totalAmount = expenses.reduce((sum, exp) => sum + exp.expenseAmount, 0);
-      const matchedCount = matchedExpenses.filter(e => e.matched).length;
-      const unmatchedExpenses = matchedExpenses.filter(e => !e.matched);
-
-      const initialUnmatchedCount = unmatchedExpenses.length;
-
-      setCurrentAgencyId(agencyId);
-      setCurrentReportDate(reportDate);
-      setUploadSummary({
-        totalRecords: expenses.length,
-        totalAmount,
-        matchedCount,
-        unmatchedCount: initialUnmatchedCount,
-        unmatchedNames: unmatchedExpenses.map(e => e.merchantName),
-        unmatchedExpenses: unmatchedExpenses,
-      });
+      const initialUnmatchedCount = matchedExpenses.filter(e => !e.matched).length;
 
       if (initialUnmatchedCount > 0) {
         toast.warning(`Upload complete. ${initialUnmatchedCount} merchants need mapping.`);
@@ -185,6 +221,8 @@ export default function ExpenseUpload() {
       setFile(null);
       const input = document.getElementById('expense-file-input') as HTMLInputElement;
       if (input) input.value = '';
+
+      await loadUnmatchedExpenses();
     } catch (error) {
       console.error('Error processing Dejavoo file:', error);
       throw error;
@@ -192,30 +230,7 @@ export default function ExpenseUpload() {
   }
 
   async function handleMappingComplete() {
-    if (!currentAgencyId || !currentReportDate) return;
-
-    const { data: expenses } = await supabase
-      .from('merchant_expenses')
-      .select('merchant_name, expense_amount, matched')
-      .eq('agency_id', currentAgencyId)
-      .eq('expense_source', 'Dejavoo')
-      .eq('report_date', currentReportDate);
-
-    if (expenses) {
-      const unmatchedExpenses = expenses.filter(e => !e.matched);
-      const matchedCount = expenses.filter(e => e.matched).length;
-
-      setUploadSummary(prev => prev ? {
-        ...prev,
-        matchedCount,
-        unmatchedCount: unmatchedExpenses.length,
-        unmatchedNames: unmatchedExpenses.map(e => e.merchant_name),
-        unmatchedExpenses: unmatchedExpenses.map(e => ({
-          merchantName: e.merchant_name,
-          expenseAmount: Number(e.expense_amount),
-        })),
-      } : null);
-    }
+    await loadUnmatchedExpenses();
   }
 
   return (
@@ -385,7 +400,7 @@ export default function ExpenseUpload() {
         <UnmatchedMerchantMapping
           unmatchedExpenses={uploadSummary.unmatchedExpenses}
           agencyId={currentAgencyId}
-          reportDate={currentReportDate}
+          reportDate=""
           onMappingComplete={handleMappingComplete}
         />
       )}

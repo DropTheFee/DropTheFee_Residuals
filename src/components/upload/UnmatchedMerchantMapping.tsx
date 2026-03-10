@@ -90,8 +90,7 @@ export default function UnmatchedMerchantMapping({
         })
         .eq('agency_id', agencyId)
         .eq('merchant_name', expenseName)
-        .eq('expense_source', 'Dejavoo')
-        .eq('report_date', reportDate);
+        .eq('expense_source', 'Dejavoo');
 
       toast.success(`Mapping saved for ${expenseName}`);
       onMappingComplete();
@@ -136,8 +135,7 @@ export default function UnmatchedMerchantMapping({
           })
           .eq('agency_id', agencyId)
           .eq('merchant_name', expenseName)
-          .eq('expense_source', 'Dejavoo')
-          .eq('report_date', reportDate);
+          .eq('expense_source', 'Dejavoo');
       }
 
       toast.success(`Saved ${selectedMappings.size} mappings successfully`);

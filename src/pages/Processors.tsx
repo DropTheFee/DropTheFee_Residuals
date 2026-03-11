@@ -228,6 +228,20 @@ export default function Processors() {
     setHeaderRowNumber(0);
   };
 
+  const handleHeaderRowNumberChange = async (newRowNumber: number) => {
+    setHeaderRowNumber(newRowNumber);
+
+    if (uploadFile) {
+      try {
+        const headers = await extractFileHeaders(uploadFile, newRowNumber);
+        setFileHeaders(headers);
+      } catch (error) {
+        console.error('Error re-extracting headers:', error);
+        toast.error('Failed to read headers from the specified row');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -253,7 +267,7 @@ export default function Processors() {
             type="number"
             min="0"
             value={headerRowNumber}
-            onChange={(e) => setHeaderRowNumber(parseInt(e.target.value) || 0)}
+            onChange={(e) => handleHeaderRowNumberChange(parseInt(e.target.value) || 0)}
             className="bg-slate-700 border-slate-600 text-white max-w-xs"
           />
         </div>

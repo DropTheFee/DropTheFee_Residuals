@@ -246,17 +246,12 @@ export default function Processors() {
         console.log('Extracting headers from row:', newRowNumber);
         const headers = await extractFileHeaders(uploadFile, newRowNumber);
         console.log('New headers extracted:', headers.length, 'columns:', headers);
-
-        if (headers && headers.length > 0) {
-          setFileHeaders(headers);
-          console.log('Headers updated successfully');
-        } else {
-          console.warn('No headers found at row', newRowNumber, '- keeping existing headers');
-          toast.error(`No headers found at row ${newRowNumber}. Try a different row number.`);
-        }
+        setFileHeaders(headers);
+        console.log('Headers updated successfully. FileHeaders state should now have', headers.length, 'items');
       } catch (error) {
         console.error('Error re-extracting headers:', error);
         toast.error('Failed to read headers from the specified row');
+        setFileHeaders([]);
       }
     } else {
       console.warn('No upload file available - cannot re-extract headers');

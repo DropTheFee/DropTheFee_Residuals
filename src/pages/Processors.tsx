@@ -228,12 +228,21 @@ export default function Processors() {
     setHeaderRowNumber(0);
   };
 
-  const handleHeaderRowNumberChange = async (newRowNumber: number) => {
+  const handleHeaderRowNumberChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newRowNumber = parseInt(e.target.value) || 0;
+
+    console.log('Header row number changing to:', newRowNumber);
+    console.log('Upload file exists:', !!uploadFile);
+    console.log('Editing mapping:', editingMapping?.processor_name);
+
     setHeaderRowNumber(newRowNumber);
 
     if (uploadFile) {
       try {
         const headers = await extractFileHeaders(uploadFile, newRowNumber);
+        console.log('New headers extracted:', headers.length, 'columns');
         setFileHeaders(headers);
       } catch (error) {
         console.error('Error re-extracting headers:', error);
@@ -251,6 +260,13 @@ export default function Processors() {
   }
 
   if (showMapper && fileHeaders.length > 0 && editingMapping) {
+    console.log('Rendering mapper view with:', {
+      headerRowNumber,
+      fileHeadersCount: fileHeaders.length,
+      processorName: editingMapping.processor_name,
+      hasUploadFile: !!uploadFile
+    });
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -272,12 +288,18 @@ export default function Processors() {
             type="number"
             min="0"
             value={headerRowNumber}
-            onChange={(e) => handleHeaderRowNumberChange(parseInt(e.target.value) || 0)}
+            onChange={handleHeaderRowNumberChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
             className="bg-slate-700 border-slate-600 text-white max-w-xs"
           />
         </div>
 
         <ColumnMapper
+          key={`${editingMapping.id}-${headerRowNumber}`}
           headers={fileHeaders}
           processorName={editingMapping.processor_name}
           onMappingComplete={handleMappingComplete}

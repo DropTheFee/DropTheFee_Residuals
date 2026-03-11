@@ -206,7 +206,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="text-slate-400">No data available</div>
-        {(user.role === 'superadmin' || user.role === 'admin') && (
+        {(user.role === 'SuperAdmin' || user.role === 'admin') && (
           <Button onClick={onNavigateToUpload} className="bg-[#0f3460] hover:bg-[#0f3460]/90">
             Upload Your First Report
           </Button>
@@ -225,7 +225,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           <p className="text-slate-400 mt-1">Welcome back, {user.full_name || user.email}</p>
         </div>
         <div className="flex gap-2">
-          {(user.role === 'superadmin' || user.role === 'admin') && (
+          {(user.role === 'SuperAdmin' || user.role === 'admin') && (
             <Button onClick={onNavigateToUpload} className="bg-[#0f3460] hover:bg-[#0f3460]/90">
               <img src="https://mgx-backend-cdn.metadl.com/generate/images/770325/2026-01-26/6864ace1-6db8-45c9-a011-3e16a50467f5.png" alt="" className="h-4 w-4 mr-2" />
               Upload Report

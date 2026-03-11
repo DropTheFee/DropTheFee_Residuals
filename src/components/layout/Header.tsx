@@ -18,7 +18,7 @@ interface HeaderProps {
 export function Header({ user, onSignOut }: HeaderProps) {
   const getRoleBadge = (role: string) => {
     const badges = {
-      superadmin: 'Super Admin',
+      SuperAdmin: 'Super Admin',
       admin: 'Admin',
       sales_rep: 'Sales Rep',
       junior_sales_rep: 'Junior Rep',

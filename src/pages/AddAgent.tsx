@@ -60,7 +60,7 @@ export default function AddAgent() {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (userData?.role !== 'superadmin') {
+      if (userData?.role !== 'SuperAdmin') {
         navigate('/dashboard');
         return;
       }
@@ -149,7 +149,7 @@ export default function AddAgent() {
     );
   }
 
-  if (currentUserRole !== 'superadmin') {
+  if (currentUserRole !== 'SuperAdmin') {
     return null;
   }
 

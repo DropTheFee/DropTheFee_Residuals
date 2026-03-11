@@ -10,7 +10,7 @@ const menuItems = [
   { icon: Upload, label: 'Upload Reports', path: '/upload', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: Users, label: 'Merchants', path: '/merchants' },
   { icon: Settings, label: 'Processors', path: '/processors', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
-  { icon: UserPlus, label: 'Add Agent', path: '/add-agent', allowedRoles: ['superadmin'] },
+  { icon: UserPlus, label: 'Add Agent', path: '/add-agent', allowedRoles: ['SuperAdmin'] },
 ];
 
 interface SidebarProps {

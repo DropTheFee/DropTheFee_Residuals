@@ -2,7 +2,7 @@ export interface User {
   id: string;
   ghl_user_id?: string;
   email: string;
-  role: 'superadmin' | 'admin' | 'sales_rep' | 'junior_sales_rep';
+  role: 'SuperAdmin' | 'admin' | 'sales_rep' | 'junior_sales_rep';
   sales_rep_id?: string;
   trainer_id?: string;
   agency_id?: string;

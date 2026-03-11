@@ -25,24 +25,38 @@ interface ColumnMapperProps {
   processorName: string;
   onMappingComplete: (mapping: ColumnMapping) => void;
   onCancel: () => void;
+  initialMapping?: Partial<ColumnMapping>;
 }
 
 const IGNORE_VALUE = '__ignore__';
 
-export function ColumnMapper({ headers, processorName, onMappingComplete, onCancel }: ColumnMapperProps) {
-  // Filter out empty, null, whitespace-only headers immediately
+export function ColumnMapper({ headers, processorName, onMappingComplete, onCancel, initialMapping }: ColumnMapperProps) {
   const cleanHeaders = Array.isArray(headers)
     ? headers.filter(h => h !== null && h !== undefined && String(h).trim() !== '')
     : [];
 
+  const getCoastalPayMapping = () => {
+    if (processorName !== 'CoastalPay') return {};
+
+    const hasColumn = (name: string) => cleanHeaders.includes(name);
+
+    return {
+      mid_column: hasColumn('Merchant ID') ? 'Merchant ID' : '',
+      merchant_name_column: hasColumn('Merchant') ? 'Merchant' : '',
+      volume_column: hasColumn('Sales Amount') ? 'Sales Amount' : '',
+      residual_column: hasColumn('Agent Net') ? 'Agent Net' : '',
+    };
+  };
+
   const [mapping, setMapping] = useState<ColumnMapping>({
-    mid_column: '',
-    merchant_name_column: '',
-    volume_column: '',
-    residual_column: '',
-    status_column: '',
-    rep_payout_column: '',
-    dba_column: '',
+    mid_column: initialMapping?.mid_column || '',
+    merchant_name_column: initialMapping?.merchant_name_column || '',
+    volume_column: initialMapping?.volume_column || '',
+    residual_column: initialMapping?.residual_column || '',
+    status_column: initialMapping?.status_column || '',
+    rep_payout_column: initialMapping?.rep_payout_column || '',
+    dba_column: initialMapping?.dba_column || '',
+    ...getCoastalPayMapping(),
   });
 
   const handleSubmit = () => {

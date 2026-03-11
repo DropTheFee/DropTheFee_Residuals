@@ -160,7 +160,8 @@ export default function Processors() {
     setEditingMapping(mapping);
     setUploadFile(null);
     setFileHeaders([]);
-    setHeaderRowNumber(mapping.header_row_number);
+    const defaultHeaderRow = mapping.processor_name === 'CoastalPay' ? 4 : mapping.header_row_number;
+    setHeaderRowNumber(defaultHeaderRow);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,7 +179,8 @@ export default function Processors() {
     setUploadFile(selectedFile);
 
     try {
-      const headers = await extractFileHeaders(selectedFile, headerRowNumber);
+      const rowToRead = editingMapping?.processor_name === 'CoastalPay' ? 4 : headerRowNumber;
+      const headers = await extractFileHeaders(selectedFile, rowToRead);
       setFileHeaders(headers);
       setShowMapper(true);
     } catch (error) {

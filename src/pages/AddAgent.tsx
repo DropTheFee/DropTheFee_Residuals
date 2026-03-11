@@ -61,7 +61,7 @@ export default function AddAgent() {
         .maybeSingle();
 
       if (userData?.role !== 'superadmin') {
-        navigate('/');
+        navigate('/dashboard');
         return;
       }
 
@@ -69,7 +69,7 @@ export default function AddAgent() {
       setLoading(false);
     } catch (error) {
       console.error('Error checking user role:', error);
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 

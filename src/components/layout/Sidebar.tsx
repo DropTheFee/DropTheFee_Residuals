@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { User } from '@/types';
@@ -10,6 +10,7 @@ const menuItems = [
   { icon: Upload, label: 'Upload Reports', path: '/upload', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: Users, label: 'Merchants', path: '/merchants' },
   { icon: Settings, label: 'Processors', path: '/processors', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
+  { icon: UserPlus, label: 'Add Agent', path: '/add-agent', allowedRoles: ['superadmin'] },
 ];
 
 interface SidebarProps {
@@ -21,7 +22,11 @@ export default function Sidebar({ user }: SidebarProps) {
   const location = useLocation();
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (!item.restrictedRoles || !user) return true;
+    if (!user) return true;
+    if (item.allowedRoles) {
+      return item.allowedRoles.includes(user.role);
+    }
+    if (!item.restrictedRoles) return true;
     return !item.restrictedRoles.includes(user.role);
   });
 

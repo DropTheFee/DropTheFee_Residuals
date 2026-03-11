@@ -160,8 +160,7 @@ export default function Processors() {
     setEditingMapping(mapping);
     setUploadFile(null);
     setFileHeaders([]);
-    const defaultHeaderRow = mapping.processor_name === 'CoastalPay' ? 4 : mapping.header_row_number;
-    setHeaderRowNumber(defaultHeaderRow);
+    setHeaderRowNumber(mapping.header_row_number);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,8 +178,7 @@ export default function Processors() {
     setUploadFile(selectedFile);
 
     try {
-      const rowToRead = editingMapping?.processor_name === 'CoastalPay' ? 4 : headerRowNumber;
-      const headers = await extractFileHeaders(selectedFile, rowToRead);
+      const headers = await extractFileHeaders(selectedFile, headerRowNumber);
       setFileHeaders(headers);
       setShowMapper(true);
     } catch (error) {
@@ -263,7 +261,12 @@ export default function Processors() {
         </div>
 
         <div className="mb-4">
-          <Label htmlFor="header-row" className="text-slate-300">Header Row Number (0 = first row)</Label>
+          <Label htmlFor="header-row" className="text-slate-300">
+            Header Row Number (0 = first row)
+            {editingMapping.processor_name === 'CoastalPay' && (
+              <span className="text-xs text-cyan-400 ml-2">Hint: CoastalPay files typically have headers on row 4</span>
+            )}
+          </Label>
           <Input
             id="header-row"
             type="number"
@@ -279,6 +282,15 @@ export default function Processors() {
           processorName={editingMapping.processor_name}
           onMappingComplete={handleMappingComplete}
           onCancel={handleCancelMapping}
+          initialMapping={{
+            mid_column: editingMapping.mid_column || undefined,
+            merchant_name_column: editingMapping.merchant_name_column || undefined,
+            volume_column: editingMapping.volume_column || undefined,
+            residual_column: editingMapping.residual_column || undefined,
+            status_column: editingMapping.status_column || undefined,
+            rep_payout_column: editingMapping.rep_payout_column || undefined,
+            dba_column: editingMapping.dba_column || undefined,
+          }}
         />
       </div>
     );

@@ -38,6 +38,11 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
   const getCoastalPayMapping = () => {
     if (processorName !== 'CoastalPay') return {};
 
+    const hasInitialMapping = initialMapping?.mid_column || initialMapping?.merchant_name_column ||
+                              initialMapping?.volume_column || initialMapping?.residual_column;
+
+    if (hasInitialMapping) return {};
+
     const hasColumn = (name: string) => cleanHeaders.includes(name);
 
     return {
@@ -48,15 +53,17 @@ export function ColumnMapper({ headers, processorName, onMappingComplete, onCanc
     };
   };
 
-  const [mapping, setMapping] = useState<ColumnMapping>({
-    mid_column: initialMapping?.mid_column || '',
-    merchant_name_column: initialMapping?.merchant_name_column || '',
-    volume_column: initialMapping?.volume_column || '',
-    residual_column: initialMapping?.residual_column || '',
-    status_column: initialMapping?.status_column || '',
-    rep_payout_column: initialMapping?.rep_payout_column || '',
-    dba_column: initialMapping?.dba_column || '',
-    ...getCoastalPayMapping(),
+  const [mapping, setMapping] = useState<ColumnMapping>(() => {
+    const coastalPayMapping = getCoastalPayMapping();
+    return {
+      mid_column: initialMapping?.mid_column || coastalPayMapping.mid_column || '',
+      merchant_name_column: initialMapping?.merchant_name_column || coastalPayMapping.merchant_name_column || '',
+      volume_column: initialMapping?.volume_column || coastalPayMapping.volume_column || '',
+      residual_column: initialMapping?.residual_column || coastalPayMapping.residual_column || '',
+      status_column: initialMapping?.status_column || '',
+      rep_payout_column: initialMapping?.rep_payout_column || '',
+      dba_column: initialMapping?.dba_column || '',
+    };
   });
 
   const handleSubmit = () => {

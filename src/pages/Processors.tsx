@@ -236,18 +236,30 @@ export default function Processors() {
     console.log('Header row number changing to:', newRowNumber);
     console.log('Upload file exists:', !!uploadFile);
     console.log('Editing mapping:', editingMapping?.processor_name);
+    console.log('Current file headers count:', fileHeaders.length);
+    console.log('showMapper state:', showMapper);
 
     setHeaderRowNumber(newRowNumber);
 
     if (uploadFile) {
       try {
+        console.log('Extracting headers from row:', newRowNumber);
         const headers = await extractFileHeaders(uploadFile, newRowNumber);
-        console.log('New headers extracted:', headers.length, 'columns');
-        setFileHeaders(headers);
+        console.log('New headers extracted:', headers.length, 'columns:', headers);
+
+        if (headers && headers.length > 0) {
+          setFileHeaders(headers);
+          console.log('Headers updated successfully');
+        } else {
+          console.warn('No headers found at row', newRowNumber, '- keeping existing headers');
+          toast.error(`No headers found at row ${newRowNumber}. Try a different row number.`);
+        }
       } catch (error) {
         console.error('Error re-extracting headers:', error);
         toast.error('Failed to read headers from the specified row');
       }
+    } else {
+      console.warn('No upload file available - cannot re-extract headers');
     }
   };
 
@@ -259,13 +271,24 @@ export default function Processors() {
     );
   }
 
-  if (showMapper && fileHeaders.length > 0 && editingMapping) {
+  if (showMapper && editingMapping) {
     console.log('Rendering mapper view with:', {
       headerRowNumber,
       fileHeadersCount: fileHeaders.length,
       processorName: editingMapping.processor_name,
-      hasUploadFile: !!uploadFile
+      hasUploadFile: !!uploadFile,
+      showMapper
     });
+
+    if (fileHeaders.length === 0) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-lg text-slate-300">Loading headers...</div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">

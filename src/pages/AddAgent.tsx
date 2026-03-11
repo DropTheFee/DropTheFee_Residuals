@@ -11,7 +11,6 @@ import { Loader as Loader2 } from 'lucide-react';
 
 interface Trainer {
   id: string;
-  full_name: string;
   email: string;
 }
 
@@ -77,9 +76,9 @@ export default function AddAgent() {
     try {
       const { data } = await supabase
         .from('users')
-        .select('id, full_name, email')
-        .eq('role', 'sales_rep')
-        .order('full_name');
+        .select('id, email')
+        .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
+        .order('email');
 
       if (data) {
         setTrainers(data);
@@ -110,8 +109,8 @@ export default function AddAgent() {
           email: formData.email,
           full_name: formData.full_name,
           role: formData.role,
-          sales_rep_id: formData.office_code || null,
-          trainer_id: formData.trainer_id || null,
+          sales_rep_id: formData.office_code === 'none' ? null : formData.office_code || null,
+          trainer_id: formData.trainer_id === 'none' ? null : formData.trainer_id || null,
           agency_id: 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622',
           agency_name: 'RMSOK',
           contract_type: getContractType(formData.role),
@@ -220,7 +219,7 @@ export default function AddAgent() {
                     <SelectValue placeholder="Select an office code (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {officeCodeOptions.map((code) => (
                       <SelectItem key={code} value={code}>
                         {code}
@@ -243,10 +242,10 @@ export default function AddAgent() {
                     <SelectValue placeholder="Select a trainer (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {trainers.map((trainer) => (
                       <SelectItem key={trainer.id} value={trainer.id}>
-                        {trainer.full_name} ({trainer.email})
+                        {trainer.email}
                       </SelectItem>
                     ))}
                   </SelectContent>

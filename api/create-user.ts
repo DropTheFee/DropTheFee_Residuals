@@ -60,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { error: userError } = await supabase.from('users').insert({
       id: authUser.user.id,
       email,
-      role,
+      role: 'sales_rep',
       sales_rep_id: sales_rep_id || null,
       trainer_id: trainer_id || null,
       agency_id,

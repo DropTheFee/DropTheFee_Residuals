@@ -158,7 +158,7 @@ export default function AddAgent() {
         <CardHeader>
           <CardTitle>Add New Agent</CardTitle>
           <CardDescription>
-            Create a new agent account. The agent will receive a password reset email to set their password.
+            Create a new agent account.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -72,6 +72,11 @@ function getOverrideTierPercentage(totalVolume: number, tiers: CommissionOverrid
   return tiers[0].override_percentage;
 }
 
+function calculatePayout(netResidual: number, pct: number): number {
+  if (netResidual < 0) return netResidual;
+  return netResidual * (pct / 100);
+}
+
 export async function calculateCommissions(periodMonth: string, agencyId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const reportDate = new Date(periodMonth + 'T12:00:00');
@@ -184,7 +189,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           const tierPct = getTierPercentage(totalVolume, SR_SAE_TIERS);
 
           for (const merchant of repMerchants) {
-            const payout = merchant.net_residual * (tierPct / 100);
+            const payout = calculatePayout(merchant.net_residual, tierPct);
 
             commissionResults.push({
               agency_id: agencyId,
@@ -209,7 +214,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           const tierPct = getTierPercentage(totalVolume, JR_AE_TIERS);
 
           for (const merchant of repMerchants) {
-            const payout = merchant.net_residual * (tierPct / 100);
+            const payout = calculatePayout(merchant.net_residual, tierPct);
 
             commissionResults.push({
               agency_id: agencyId,
@@ -232,7 +237,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           }
         } else if (contract.contract_type === 'katlyn_flat') {
           for (const merchant of repMerchants) {
-            const payout = merchant.net_residual * 0.5;
+            const payout = calculatePayout(merchant.net_residual, 50);
 
             commissionResults.push({
               agency_id: agencyId,
@@ -256,7 +261,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         } else if (contract.contract_type === 'venture_apps') {
           for (const merchant of repMerchants) {
             const tierPct = merchant.venture_source === 'venture' ? 70 : 20;
-            const payout = merchant.net_residual * (tierPct / 100);
+            const payout = calculatePayout(merchant.net_residual, tierPct);
 
             commissionResults.push({
               agency_id: agencyId,
@@ -283,7 +288,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           const overridePct = getOverrideTierPercentage(jrAeTotalVolume, SAE_OVERRIDE_TIERS);
 
           for (const merchant of jrAeMerchants) {
-            const payout = merchant.net_residual * (overridePct / 100);
+            const payout = calculatePayout(merchant.net_residual, overridePct);
 
             commissionResults.push({
               agency_id: agencyId,

@@ -1,0 +1,378 @@
+import { supabase } from '@/lib/supabase';
+
+export interface CommissionTier {
+  min_volume: number;
+  max_volume: number | null;
+  split_percentage: number;
+}
+
+export interface CommissionOverrideTier {
+  min_volume: number;
+  max_volume: number | null;
+  override_percentage: number;
+}
+
+export interface MerchantCommissionData {
+  merchant_id: string;
+  merchant_name: string;
+  processor: string | null;
+  sales_rep_id: string;
+  venture_source: string | null;
+  monthly_volume: number;
+  gross_residual: number;
+  expenses: number;
+  net_residual: number;
+}
+
+export interface RepContract {
+  user_id: string;
+  contract_type: string;
+  override_from_user_id: string | null;
+}
+
+const SR_SAE_TIERS = [
+  { min_volume: 0, max_volume: 499999, split_percentage: 60 },
+  { min_volume: 500000, max_volume: 999999, split_percentage: 70 },
+  { min_volume: 1000000, max_volume: 1999999, split_percentage: 75 },
+  { min_volume: 2000000, max_volume: 3499999, split_percentage: 80 },
+  { min_volume: 3500000, max_volume: 4999999, split_percentage: 85 },
+  { min_volume: 5000000, max_volume: null, split_percentage: 90 },
+];
+
+const JR_AE_TIERS = [
+  { min_volume: 0, max_volume: 499999, split_percentage: 50 },
+  { min_volume: 500000, max_volume: 999999, split_percentage: 60 },
+  { min_volume: 1000000, max_volume: 1999999, split_percentage: 65 },
+  { min_volume: 2000000, max_volume: 3499999, split_percentage: 70 },
+  { min_volume: 3500000, max_volume: null, split_percentage: 75 },
+];
+
+const SAE_OVERRIDE_TIERS = [
+  { min_volume: 0, max_volume: 499999, override_percentage: 30 },
+  { min_volume: 500000, max_volume: 999999, override_percentage: 20 },
+  { min_volume: 1000000, max_volume: 1999999, override_percentage: 15 },
+  { min_volume: 2000000, max_volume: null, override_percentage: 10 },
+];
+
+function getTierPercentage(totalVolume: number, tiers: CommissionTier[]): number {
+  for (const tier of tiers) {
+    if (totalVolume >= tier.min_volume && (tier.max_volume === null || totalVolume <= tier.max_volume)) {
+      return tier.split_percentage;
+    }
+  }
+  return tiers[0].split_percentage;
+}
+
+function getOverrideTierPercentage(totalVolume: number, tiers: CommissionOverrideTier[]): number {
+  for (const tier of tiers) {
+    if (totalVolume >= tier.min_volume && (tier.max_volume === null || totalVolume <= tier.max_volume)) {
+      return tier.override_percentage;
+    }
+  }
+  return tiers[0].override_percentage;
+}
+
+export async function calculateCommissions(periodMonth: string, agencyId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const reportDate = new Date(periodMonth + '-01');
+
+    const { data: merchants, error: merchantsError } = await supabase
+      .from('merchants')
+      .select(`
+        id,
+        merchant_id,
+        merchant_name,
+        processor,
+        sales_rep_id,
+        venture_source,
+        merchant_history!inner (
+          monthly_volume,
+          monthly_income,
+          report_date
+        ),
+        merchant_expenses (
+          expense_amount,
+          report_date,
+          matched
+        )
+      `)
+      .eq('agency_id', agencyId);
+
+    if (merchantsError) throw merchantsError;
+
+    const { data: repContracts, error: contractsError } = await supabase
+      .from('rep_contracts')
+      .select('*');
+
+    if (contractsError) throw contractsError;
+
+    const merchantCommissionData: MerchantCommissionData[] = [];
+
+    for (const merchant of merchants || []) {
+      if (!merchant.sales_rep_id) continue;
+
+      const history = (merchant as any).merchant_history?.find((h: any) => {
+        const hDate = new Date(h.report_date);
+        return hDate.getMonth() === reportDate.getMonth() && hDate.getFullYear() === reportDate.getFullYear();
+      });
+
+      if (!history) continue;
+
+      const expenses = (merchant as any).merchant_expenses
+        ?.filter((e: any) => {
+          if (!e.matched) return false;
+          const eDate = new Date(e.report_date);
+          return eDate.getMonth() === reportDate.getMonth() && eDate.getFullYear() === reportDate.getFullYear();
+        })
+        .reduce((sum: number, e: any) => sum + parseFloat(e.expense_amount || 0), 0) || 0;
+
+      const grossResidual = parseFloat(history.monthly_income || 0);
+      const netResidual = grossResidual - expenses;
+
+      merchantCommissionData.push({
+        merchant_id: merchant.id,
+        merchant_name: merchant.merchant_name,
+        processor: merchant.processor,
+        sales_rep_id: merchant.sales_rep_id,
+        venture_source: merchant.venture_source,
+        monthly_volume: parseFloat(history.monthly_volume || 0),
+        gross_residual: grossResidual,
+        expenses,
+        net_residual: netResidual,
+      });
+    }
+
+    const repMerchantMap = new Map<string, MerchantCommissionData[]>();
+    for (const data of merchantCommissionData) {
+      if (!repMerchantMap.has(data.sales_rep_id)) {
+        repMerchantMap.set(data.sales_rep_id, []);
+      }
+      repMerchantMap.get(data.sales_rep_id)!.push(data);
+    }
+
+    await supabase
+      .from('commission_results')
+      .delete()
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth);
+
+    const commissionResults: any[] = [];
+
+    for (const [repId, repMerchants] of repMerchantMap.entries()) {
+      const contracts = repContracts?.filter(c => c.user_id === repId) || [];
+      const totalVolume = repMerchants.reduce((sum, m) => sum + m.monthly_volume, 0);
+
+      for (const contract of contracts) {
+        if (contract.contract_type === 'sr_sae') {
+          const tierPct = getTierPercentage(totalVolume, SR_SAE_TIERS);
+
+          for (const merchant of repMerchants) {
+            const payout = merchant.net_residual * (tierPct / 100);
+
+            commissionResults.push({
+              agency_id: agencyId,
+              period_month: periodMonth,
+              user_id: repId,
+              merchant_id: merchant.merchant_id,
+              contract_type: 'sr_sae',
+              source_type: 'merchant',
+              merchant_name: merchant.merchant_name,
+              processor: merchant.processor,
+              total_volume: totalVolume,
+              monthly_volume: merchant.monthly_volume,
+              gross_residual: merchant.gross_residual,
+              expenses: merchant.expenses,
+              net_residual: merchant.net_residual,
+              tier_percentage: tierPct,
+              payout_amount: payout,
+              override_from_user_id: null,
+            });
+          }
+        } else if (contract.contract_type === 'jr_ae') {
+          const tierPct = getTierPercentage(totalVolume, JR_AE_TIERS);
+
+          for (const merchant of repMerchants) {
+            const payout = merchant.net_residual * (tierPct / 100);
+
+            commissionResults.push({
+              agency_id: agencyId,
+              period_month: periodMonth,
+              user_id: repId,
+              merchant_id: merchant.merchant_id,
+              contract_type: 'jr_ae',
+              source_type: 'merchant',
+              merchant_name: merchant.merchant_name,
+              processor: merchant.processor,
+              total_volume: totalVolume,
+              monthly_volume: merchant.monthly_volume,
+              gross_residual: merchant.gross_residual,
+              expenses: merchant.expenses,
+              net_residual: merchant.net_residual,
+              tier_percentage: tierPct,
+              payout_amount: payout,
+              override_from_user_id: null,
+            });
+          }
+        } else if (contract.contract_type === 'katlyn_flat') {
+          for (const merchant of repMerchants) {
+            const payout = merchant.net_residual * 0.5;
+
+            commissionResults.push({
+              agency_id: agencyId,
+              period_month: periodMonth,
+              user_id: repId,
+              merchant_id: merchant.merchant_id,
+              contract_type: 'katlyn_flat',
+              source_type: 'merchant',
+              merchant_name: merchant.merchant_name,
+              processor: merchant.processor,
+              total_volume: totalVolume,
+              monthly_volume: merchant.monthly_volume,
+              gross_residual: merchant.gross_residual,
+              expenses: merchant.expenses,
+              net_residual: merchant.net_residual,
+              tier_percentage: 50,
+              payout_amount: payout,
+              override_from_user_id: null,
+            });
+          }
+        } else if (contract.contract_type === 'venture_apps') {
+          for (const merchant of repMerchants) {
+            const tierPct = merchant.venture_source === 'venture' ? 70 : 20;
+            const payout = merchant.net_residual * (tierPct / 100);
+
+            commissionResults.push({
+              agency_id: agencyId,
+              period_month: periodMonth,
+              user_id: repId,
+              merchant_id: merchant.merchant_id,
+              contract_type: 'venture_apps',
+              source_type: 'merchant',
+              merchant_name: merchant.merchant_name,
+              processor: merchant.processor,
+              total_volume: totalVolume,
+              monthly_volume: merchant.monthly_volume,
+              gross_residual: merchant.gross_residual,
+              expenses: merchant.expenses,
+              net_residual: merchant.net_residual,
+              tier_percentage: tierPct,
+              payout_amount: payout,
+              override_from_user_id: null,
+            });
+          }
+        } else if (contract.contract_type === 'sae_override' && contract.override_from_user_id) {
+          const jrAeMerchants = repMerchantMap.get(contract.override_from_user_id) || [];
+          const jrAeTotalVolume = jrAeMerchants.reduce((sum, m) => sum + m.monthly_volume, 0);
+          const overridePct = getOverrideTierPercentage(jrAeTotalVolume, SAE_OVERRIDE_TIERS);
+
+          for (const merchant of jrAeMerchants) {
+            const payout = merchant.net_residual * (overridePct / 100);
+
+            commissionResults.push({
+              agency_id: agencyId,
+              period_month: periodMonth,
+              user_id: repId,
+              merchant_id: merchant.merchant_id,
+              contract_type: 'sae_override',
+              source_type: 'merchant',
+              merchant_name: merchant.merchant_name,
+              processor: merchant.processor,
+              total_volume: jrAeTotalVolume,
+              monthly_volume: merchant.monthly_volume,
+              gross_residual: merchant.gross_residual,
+              expenses: merchant.expenses,
+              net_residual: merchant.net_residual,
+              tier_percentage: overridePct,
+              payout_amount: payout,
+              override_from_user_id: contract.override_from_user_id,
+            });
+          }
+        }
+      }
+    }
+
+    const { data: surjEntries } = await supabase
+      .from('surj_entries')
+      .select('user_id, amount')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth);
+
+    for (const entry of surjEntries || []) {
+      commissionResults.push({
+        agency_id: agencyId,
+        period_month: periodMonth,
+        user_id: entry.user_id,
+        merchant_id: null,
+        contract_type: 'surj',
+        source_type: 'surj',
+        merchant_name: 'SüRJ Platform',
+        processor: null,
+        total_volume: 0,
+        monthly_volume: 0,
+        gross_residual: 0,
+        expenses: 0,
+        net_residual: 0,
+        tier_percentage: 0,
+        payout_amount: entry.amount,
+        override_from_user_id: null,
+      });
+    }
+
+    const { data: nabRecords } = await supabase
+      .from('nab_records')
+      .select('rep_user_id, merchant_name, bonus_amount')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth);
+
+    const nabByRep = new Map<string, number>();
+    for (const nab of nabRecords || []) {
+      const current = nabByRep.get(nab.rep_user_id) || 0;
+      nabByRep.set(nab.rep_user_id, current + parseFloat(nab.bonus_amount));
+    }
+
+    for (const [repId, totalAmount] of nabByRep.entries()) {
+      commissionResults.push({
+        agency_id: agencyId,
+        period_month: periodMonth,
+        user_id: repId,
+        merchant_id: null,
+        contract_type: 'nab',
+        source_type: 'nab',
+        merchant_name: 'EPI New Account Bonus',
+        processor: null,
+        total_volume: 0,
+        monthly_volume: 0,
+        gross_residual: 0,
+        expenses: 0,
+        net_residual: 0,
+        tier_percentage: 0,
+        payout_amount: totalAmount,
+        override_from_user_id: null,
+      });
+    }
+
+    if (commissionResults.length > 0) {
+      const { error: insertError } = await supabase
+        .from('commission_results')
+        .insert(commissionResults);
+
+      if (insertError) throw insertError;
+    }
+
+    await supabase
+      .from('commission_periods')
+      .upsert({
+        agency_id: agencyId,
+        period_month: periodMonth,
+        status: 'calculated',
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'agency_id,period_month'
+      });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Commission calculation error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}

@@ -14,7 +14,9 @@ import NotFound from './pages/NotFound';
 import Index from './pages/Index';
 import ResetPassword from './pages/ResetPassword';
 import AddAgent from './pages/AddAgent';
+import Commissions from './pages/Commissions';
 import { User } from '@/types';
+import { ViewAsProvider } from '@/contexts/ViewAsContext';
 
 const queryClient = new QueryClient();
 
@@ -107,9 +109,9 @@ const App = () => {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a] pt-16">
+      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
         <Header user={user} onSignOut={handleSignOut} />
-        <div className="flex">
+        <div className="flex pt-16">
           <Sidebar user={user} />
           <main className="flex-1 p-6">
             {children}
@@ -134,19 +136,22 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={!authUser ? <Index /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} />
-            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-            <Route path="/merchants" element={<ProtectedRoute><Merchants /></ProtectedRoute>} />
-            <Route path="/processors" element={<ProtectedRoute><Processors /></ProtectedRoute>} />
-            <Route path="/add-agent" element={<ProtectedRoute><AddAgent /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <ViewAsProvider>
+          <Toaster />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={!authUser ? <Index /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+              <Route path="/merchants" element={<ProtectedRoute><Merchants /></ProtectedRoute>} />
+              <Route path="/processors" element={<ProtectedRoute><Processors /></ProtectedRoute>} />
+              <Route path="/add-agent" element={<ProtectedRoute><AddAgent /></ProtectedRoute>} />
+              <Route path="/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ViewAsProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

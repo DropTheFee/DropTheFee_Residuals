@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight, UserPlus, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { User } from '@/types';
+import { useViewAs } from '@/contexts/ViewAsContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Upload, label: 'Upload Reports', path: '/upload', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: Users, label: 'Merchants', path: '/merchants' },
+  { icon: DollarSign, label: 'Commissions', path: '/commissions' },
   { icon: Settings, label: 'Processors', path: '/processors', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: UserPlus, label: 'Add Agent', path: '/add-agent', allowedRoles: ['SuperAdmin'] },
 ];
@@ -20,9 +22,15 @@ interface SidebarProps {
 export default function Sidebar({ user }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { isViewingAsRep } = useViewAs();
 
   const filteredMenuItems = menuItems.filter(item => {
     if (!user) return true;
+
+    if (isViewingAsRep) {
+      return item.path === '/commissions';
+    }
+
     if (item.allowedRoles) {
       return item.allowedRoles.includes(user.role);
     }

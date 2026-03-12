@@ -12,6 +12,7 @@ import { Loader as Loader2 } from 'lucide-react';
 interface Trainer {
   id: string;
   email: string;
+  sales_rep_id: string | null;
 }
 
 const roleOptions = [
@@ -74,15 +75,15 @@ export default function AddAgent() {
 
   const fetchTrainers = async () => {
     try {
-      const { data } = await supabase
+      const { data: trainers } = await supabase
         .from('users')
-        .select('id, email')
+        .select('id, email, sales_rep_id')
         .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
         .eq('role', 'sales_rep')
         .order('email');
 
-      if (data) {
-        setTrainers(data);
+      if (trainers) {
+        setTrainers(trainers);
       }
     } catch (error) {
       console.error('Error fetching trainers:', error);

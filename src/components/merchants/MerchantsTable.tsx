@@ -8,13 +8,19 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { Merchant } from '@/types';
 
+interface MerchantWithRep extends Merchant {
+  sales_rep_name?: string;
+}
+
 export default function MerchantsTable() {
-  const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [merchants, setMerchants] = useState<MerchantWithRep[]>([]);
   const [availableProcessors, setAvailableProcessors] = useState<string[]>([]);
+  const [availableReps, setAvailableReps] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProcessor, setFilterProcessor] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterRep, setFilterRep] = useState<string>('all');
   const [sortBy, setSortBy] = useState<keyof Merchant>('merchant_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -31,6 +37,9 @@ export default function MerchantsTable() {
         .from('merchants')
         .select(`
           *,
+          sales_rep:users!merchants_sales_rep_id_fkey (
+            full_name
+          ),
           merchant_history (
             monthly_volume,
             monthly_income,
@@ -45,16 +54,30 @@ export default function MerchantsTable() {
         .eq('agency_id', profile.agency_id)
         .order('merchant_name', { ascending: true });
       console.log('merchants result:', data, error);
-      setMerchants(data || []);
+
+      const merchantsWithRep = (data || []).map(m => ({
+        ...m,
+        sales_rep_name: (m as any).sales_rep?.full_name || null
+      }));
+      setMerchants(merchantsWithRep);
 
       const processors = Array.from(
         new Set(
-          (data || [])
+          merchantsWithRep
             .map((m) => m.processor)
             .filter((p): p is string => p !== null && p !== undefined && p !== '')
         )
       ).sort();
       setAvailableProcessors(processors);
+
+      const reps = Array.from(
+        new Map(
+          merchantsWithRep
+            .filter(m => m.sales_rep_id && m.sales_rep_name)
+            .map(m => [m.sales_rep_id!, { id: m.sales_rep_id!, name: m.sales_rep_name! }])
+        ).values()
+      ).sort((a, b) => a.name.localeCompare(b.name));
+      setAvailableReps(reps);
 
       setLoading(false);
     };
@@ -94,7 +117,10 @@ export default function MerchantsTable() {
                            merchant.merchant_id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesProcessor = filterProcessor === 'all' || merchant.processor === filterProcessor;
       const matchesStatus = filterStatus === 'all' || merchant.status === filterStatus;
-      return matchesSearch && matchesProcessor && matchesStatus;
+      const matchesRep = filterRep === 'all' ||
+                        (filterRep === 'unassigned' && !merchant.sales_rep_id) ||
+                        merchant.sales_rep_id === filterRep;
+      return matchesSearch && matchesProcessor && matchesStatus && matchesRep;
     })
     .sort((a, b) => {
       const aValue = a[sortBy] || 0;
@@ -211,6 +237,20 @@ export default function MerchantsTable() {
                 <SelectItem value="churned">Churned</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterRep} onValueChange={setFilterRep}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Rep" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Reps</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {availableReps.map((rep) => (
+                  <SelectItem key={rep.id} value={rep.id}>
+                    {rep.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -229,6 +269,7 @@ export default function MerchantsTable() {
                     Merchant Name {sortBy === 'merchant_name' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </TableHead>
                   <TableHead>Processor</TableHead>
+                  <TableHead>Rep</TableHead>
                   <TableHead className="text-right">Current Volume</TableHead>
                   <TableHead className="text-right">Current Residual</TableHead>
                   <TableHead className="text-right">Expenses</TableHead>
@@ -240,7 +281,7 @@ export default function MerchantsTable() {
               <TableBody>
                 {filteredAndSortedMerchants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No merchants found. Upload a CSV file to get started.
                     </TableCell>
                   </TableRow>
@@ -268,6 +309,7 @@ export default function MerchantsTable() {
                       <TableRow key={merchant.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
                         <TableCell>{merchant.processor || 'N/A'}</TableCell>
+                        <TableCell>{merchant.sales_rep_name || 'Unassigned'}</TableCell>
                         <TableCell className="text-right">{formatCurrency(currentVolume)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(currentIncome)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(totalExpenses)}</TableCell>

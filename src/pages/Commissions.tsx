@@ -391,6 +391,7 @@ export default function Commissions() {
                   repId={rep.rep_id}
                   repName={rep.rep_name}
                   periodMonth={selectedPeriod}
+                  agencyId={agencyId}
                   embedded={true}
                 />
               </CardContent>

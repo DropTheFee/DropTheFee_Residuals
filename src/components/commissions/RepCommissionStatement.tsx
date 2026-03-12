@@ -9,6 +9,7 @@ interface RepCommissionStatementProps {
   repId: string;
   repName: string;
   periodMonth?: string;
+  agencyId?: string;
   embedded?: boolean;
 }
 
@@ -29,13 +30,14 @@ export default function RepCommissionStatement({
   repId,
   repName,
   periodMonth: initialPeriodMonth,
+  agencyId: propAgencyId,
   embedded = false
 }: RepCommissionStatementProps) {
   const [periods, setPeriods] = useState<string[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(initialPeriodMonth || '');
   const [results, setResults] = useState<CommissionResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [agencyId, setAgencyId] = useState<string>('');
+  const [agencyId, setAgencyId] = useState<string>(propAgencyId || '');
 
   useEffect(() => {
     loadPeriods();

@@ -24,6 +24,8 @@ interface CommissionResult {
   source_type: string;
   contract_type: string;
   override_from_user_id: string | null;
+  mid?: string;
+  payout_date?: string;
 }
 
 export default function RepCommissionStatement({
@@ -227,7 +229,7 @@ export default function RepCommissionStatement({
                       {formatCurrency(result.net_residual)}
                     </TableCell>
                     <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
-                    <TableCell className="text-right font-medium text-green-400">
+                    <TableCell className={`text-right font-medium ${result.rep_payout < 0 ? 'text-red-400' : 'text-green-400'}`}>
                       {formatCurrency(result.rep_payout)}
                     </TableCell>
                   </TableRow>
@@ -238,43 +240,57 @@ export default function RepCommissionStatement({
         </Card>
       )}
 
-      {overrideResults.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">SAE Override</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">Merchant Name</TableHead>
-                  <TableHead className="text-slate-300">Processor</TableHead>
-                  <TableHead className="text-right text-slate-300">Volume</TableHead>
-                  <TableHead className="text-right text-slate-300">Net Residual</TableHead>
-                  <TableHead className="text-right text-slate-300">Override %</TableHead>
-                  <TableHead className="text-right text-slate-300">Payout</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {overrideResults.map((result) => (
-                  <TableRow key={result.id} className="border-slate-700">
-                    <TableCell className="text-white">{result.merchant_name}</TableCell>
-                    <TableCell className="text-slate-300">{result.processor || 'N/A'}</TableCell>
-                    <TableCell className="text-right text-slate-300">{formatCurrency(result.monthly_volume)}</TableCell>
-                    <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
-                      {formatCurrency(result.net_residual)}
-                    </TableCell>
-                    <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
-                    <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.rep_payout)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      {overrideResults.length > 0 && (() => {
+        const traineeIds = [...new Set(overrideResults.map(r => r.override_from_user_id))];
+        return traineeIds.map(traineeId => {
+          const traineeRows = overrideResults.filter(r => r.override_from_user_id === traineeId);
+          const traineeSubtotal = traineeRows.reduce((sum, r) => sum + r.rep_payout, 0);
+          const traineeName = traineeRows[0]?.merchant_name ? null : null;
+          return (
+            <Card key={traineeId} className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Trainee Overrides</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-700">
+                      <TableHead className="text-slate-300">Merchant Name</TableHead>
+                      <TableHead className="text-slate-300">Processor</TableHead>
+                      <TableHead className="text-right text-slate-300">Volume</TableHead>
+                      <TableHead className="text-right text-slate-300">Net Residual</TableHead>
+                      <TableHead className="text-right text-slate-300">Override %</TableHead>
+                      <TableHead className="text-right text-slate-300">Payout</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {traineeRows.map((result) => (
+                      <TableRow key={result.id} className="border-slate-700">
+                        <TableCell className="text-white">{result.merchant_name}</TableCell>
+                        <TableCell className="text-slate-300">{result.processor || 'N/A'}</TableCell>
+                        <TableCell className="text-right text-slate-300">{formatCurrency(result.monthly_volume)}</TableCell>
+                        <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                          {formatCurrency(result.net_residual)}
+                        </TableCell>
+                        <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
+                        <TableCell className={`text-right font-medium ${result.rep_payout < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {formatCurrency(result.rep_payout)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-slate-700 bg-slate-700/30">
+                      <TableCell colSpan={5} className="text-right font-semibold text-slate-300">Override Subtotal</TableCell>
+                      <TableCell className={`text-right font-bold ${traineeSubtotal < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                        {formatCurrency(traineeSubtotal)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          );
+        });
+      })()}
 
       {surjResults.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
@@ -298,12 +314,36 @@ export default function RepCommissionStatement({
             <CardTitle className="text-white">EPI New Account Bonus</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-between items-center py-4">
-              <div className="text-slate-300">NAB Bonuses</div>
-              <div className="text-2xl font-bold text-green-400">
-                {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
-              </div>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">MID</TableHead>
+                  <TableHead className="text-slate-300">DBA</TableHead>
+                  <TableHead className="text-slate-300">Payout Date</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nabResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-slate-300">{result.mid || 'N/A'}</TableCell>
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className="text-slate-300">
+                      {result.payout_date ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-400">
+                      {formatCurrency(result.rep_payout)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">Monthly NAB Total</TableCell>
+                  <TableCell className="text-right font-bold text-green-400">
+                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

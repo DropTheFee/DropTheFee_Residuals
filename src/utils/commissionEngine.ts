@@ -368,12 +368,20 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
       });
     }
 
+    console.log('Inserting rows:', commissionResults.length);
+    if (commissionResults.length > 0) {
+      console.log('Sample row:', JSON.stringify(commissionResults[0], null, 2));
+    }
+
     if (commissionResults.length > 0) {
       const { error: insertError } = await supabase
         .from('commission_results')
         .insert(commissionResults);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Insert error:', JSON.stringify(insertError, null, 2));
+        throw insertError;
+      }
     }
 
     await supabase

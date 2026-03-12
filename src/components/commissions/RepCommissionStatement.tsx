@@ -202,6 +202,46 @@ export default function RepCommissionStatement({
         </Card>
       </div>
 
+      {nabResults.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">EPI New Account Bonus</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">MID</TableHead>
+                  <TableHead className="text-slate-300">DBA</TableHead>
+                  <TableHead className="text-slate-300">Payout Date</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nabResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-slate-300">{result.mid || 'N/A'}</TableCell>
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className="text-slate-300">
+                      {result.payout_date ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-400">
+                      {formatCurrency(result.rep_payout)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">Monthly NAB Total</TableCell>
+                  <TableCell className="text-right font-bold text-green-400">
+                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {merchantResults.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
@@ -304,46 +344,6 @@ export default function RepCommissionStatement({
                 {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {nabResults.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">EPI New Account Bonus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">MID</TableHead>
-                  <TableHead className="text-slate-300">DBA</TableHead>
-                  <TableHead className="text-slate-300">Payout Date</TableHead>
-                  <TableHead className="text-right text-slate-300">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {nabResults.map((result) => (
-                  <TableRow key={result.id} className="border-slate-700">
-                    <TableCell className="text-slate-300">{result.mid || 'N/A'}</TableCell>
-                    <TableCell className="text-white">{result.merchant_name}</TableCell>
-                    <TableCell className="text-slate-300">
-                      {result.payout_date ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.rep_payout)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">Monthly NAB Total</TableCell>
-                  <TableCell className="text-right font-bold text-green-400">
-                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
       )}

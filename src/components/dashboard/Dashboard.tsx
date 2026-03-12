@@ -191,33 +191,36 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
 
   const fetchAgentRoster = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: users, error: usersError } = await supabase
         .from('users')
-        .select(`
-          id,
-          full_name,
-          email,
-          sales_rep_id,
-          rep_contracts(contract_type)
-        `)
+        .select('id, full_name, email, sales_rep_id')
         .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
         .eq('role', 'sales_rep')
         .order('full_name');
 
-      if (error) {
-        console.error('Error fetching agent roster:', error);
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
         return;
       }
 
-      if (data) {
-        const roster: AgentRosterRecord[] = data.map((user: any) => ({
-          id: user.id,
-          full_name: user.full_name,
-          email: user.email,
-          sales_rep_id: user.sales_rep_id,
-          contract_types: user.rep_contracts?.map((rc: any) => rc.contract_type) || [],
+      const { data: contracts, error: contractsError } = await supabase
+        .from('rep_contracts')
+        .select('user_id, contract_type')
+        .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622');
+
+      if (contractsError) {
+        console.error('Error fetching contracts:', contractsError);
+        return;
+      }
+
+      if (users && contracts) {
+        const result = users.map(user => ({
+          ...user,
+          contract_types: contracts
+            .filter(c => c.user_id === user.id)
+            .map(c => c.contract_type)
         }));
-        setAgentRoster(roster);
+        setAgentRoster(result);
       }
     } catch (error) {
       console.error('Error fetching agent roster:', error);

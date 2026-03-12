@@ -85,8 +85,10 @@ export default function Commissions() {
       const currentDate = new Date();
       const lastSixMonths = [];
       for (let i = 0; i < 6; i++) {
-        const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        const periodMonth = d.toISOString().substring(0, 7);
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() - i;
+        const d = new Date(year, month, 1);
+        const periodMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (!allPeriods.find(p => p.period_month === periodMonth)) {
           lastSixMonths.push({
             id: periodMonth,

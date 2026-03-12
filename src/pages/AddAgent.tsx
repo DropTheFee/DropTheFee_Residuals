@@ -78,6 +78,7 @@ export default function AddAgent() {
         .from('users')
         .select('id, email')
         .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
+        .eq('role', 'sales_rep')
         .order('email');
 
       if (data) {

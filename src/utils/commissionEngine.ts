@@ -130,9 +130,9 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
     for (const merchant of merchants || []) {
       if (!merchant.sales_rep_id) continue;
 
-      const history = (merchant as any).merchant_history?.find((h: any) => {
-        return h.report_date?.substring(0, 7) === historyMonth;
-      });
+const history = (merchant as any).merchant_history?.find((h: any) => {
+  return h.report_date?.substring(0, 7) === historyMonth;
+});
 
       if (!history) continue;
 

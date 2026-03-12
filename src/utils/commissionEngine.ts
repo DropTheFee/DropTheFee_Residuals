@@ -125,12 +125,13 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
 
     const merchantCommissionData: MerchantCommissionData[] = [];
 
+    const historyMonth = periodMonth.substring(0, 7);
+
     for (const merchant of merchants || []) {
       if (!merchant.sales_rep_id) continue;
 
       const history = (merchant as any).merchant_history?.find((h: any) => {
-        const hDate = new Date(h.report_date);
-        return hDate.getMonth() === reportDate.getMonth() && hDate.getFullYear() === reportDate.getFullYear();
+        return h.report_date?.substring(0, 7) === historyMonth;
       });
 
       if (!history) continue;
@@ -138,8 +139,7 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
       const expenses = (merchant as any).merchant_expenses
         ?.filter((e: any) => {
           if (!e.matched) return false;
-          const eDate = new Date(e.report_date);
-          return eDate.getMonth() === reportDate.getMonth() && eDate.getFullYear() === reportDate.getFullYear();
+          return e.report_date?.substring(0, 7) === historyMonth;
         })
         .reduce((sum: number, e: any) => sum + parseFloat(e.expense_amount || 0), 0) || 0;
 

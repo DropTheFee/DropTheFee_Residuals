@@ -29,7 +29,17 @@ interface ProcessorMapping {
   header_row_number: number;
 }
 
-export default function DynamicCSVUpload() {
+interface DynamicCSVUploadProps {
+  selectedMonth: number;
+  selectedYear: number;
+  onPeriodChange: (month: number, year: number) => void;
+}
+
+export default function DynamicCSVUpload({
+  selectedMonth,
+  selectedYear,
+  onPeriodChange
+}: DynamicCSVUploadProps) {
   const navigate = useNavigate();
   const [processors, setProcessors] = useState<ProcessorMapping[]>([]);
   const [selectedProcessor, setSelectedProcessor] = useState<string>('');
@@ -43,19 +53,6 @@ export default function DynamicCSVUpload() {
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
   const [headerRowNumber, setHeaderRowNumber] = useState(0);
   const [agentFilter, setAgentFilter] = useState<string>('');
-
-  const getPreviousMonth = () => {
-    const now = new Date();
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return {
-      month: prevMonth.getMonth() + 1,
-      year: prevMonth.getFullYear(),
-    };
-  };
-
-  const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
-  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
 
   useEffect(() => {
     fetchUserData();
@@ -467,7 +464,7 @@ export default function DynamicCSVUpload() {
             </Label>
             <div className="flex gap-4">
               <div className="flex-1">
-                <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+                <Select value={String(selectedMonth)} onValueChange={(val) => onPeriodChange(parseInt(val), selectedYear)}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Select month" />
                   </SelectTrigger>
@@ -488,7 +485,7 @@ export default function DynamicCSVUpload() {
                 </Select>
               </div>
               <div className="flex-1">
-                <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                <Select value={String(selectedYear)} onValueChange={(val) => onPeriodChange(selectedMonth, parseInt(val))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Select year" />
                   </SelectTrigger>

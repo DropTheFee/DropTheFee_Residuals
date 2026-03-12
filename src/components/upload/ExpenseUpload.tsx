@@ -26,7 +26,17 @@ interface Merchant {
   processor: string | null;
 }
 
-export default function ExpenseUpload() {
+interface ExpenseUploadProps {
+  selectedMonth: number;
+  selectedYear: number;
+  onPeriodChange: (month: number, year: number) => void;
+}
+
+export default function ExpenseUpload({
+  selectedMonth,
+  selectedYear,
+  onPeriodChange
+}: ExpenseUploadProps) {
   const [selectedVendor, setSelectedVendor] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -134,19 +144,6 @@ export default function ExpenseUpload() {
   async function loadUnmatchedExpenses() {
     await checkForPendingMappings();
   }
-
-  const getPreviousMonth = () => {
-    const now = new Date();
-    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return {
-      month: prevMonth.getMonth() + 1,
-      year: prevMonth.getFullYear(),
-    };
-  };
-
-  const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
-  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -356,7 +353,7 @@ export default function ExpenseUpload() {
             </Label>
             <div className="flex gap-4">
               <div className="flex-1">
-                <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+                <Select value={String(selectedMonth)} onValueChange={(val) => onPeriodChange(parseInt(val), selectedYear)}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Select month" />
                   </SelectTrigger>
@@ -377,7 +374,7 @@ export default function ExpenseUpload() {
                 </Select>
               </div>
               <div className="flex-1">
-                <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+                <Select value={String(selectedYear)} onValueChange={(val) => onPeriodChange(selectedMonth, parseInt(val))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Select year" />
                   </SelectTrigger>

@@ -2,17 +2,39 @@ import { useState } from 'react';
 import PendingMappings from '@/components/upload/PendingMappings';
 import DynamicCSVUpload from '@/components/upload/DynamicCSVUpload';
 import ExpenseUpload from '@/components/upload/ExpenseUpload';
+import UploadStatus from '@/components/upload/UploadStatus';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+const getPreviousMonth = () => {
+  const now = new Date();
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return {
+    month: prevMonth.getMonth() + 1,
+    year: prevMonth.getFullYear(),
+  };
+};
+
 export default function Upload() {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
+  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
 
   return (
     <div className="space-y-8">
       <PendingMappings />
 
-      <DynamicCSVUpload />
+      <UploadStatus selectedMonth={selectedMonth} selectedYear={selectedYear} />
+
+      <DynamicCSVUpload
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onPeriodChange={(month, year) => {
+          setSelectedMonth(month);
+          setSelectedYear(year);
+        }}
+      />
 
       <div className="relative py-8">
         <div className="absolute inset-0 flex items-center">
@@ -25,7 +47,14 @@ export default function Upload() {
         </div>
       </div>
 
-      <ExpenseUpload />
+      <ExpenseUpload
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onPeriodChange={(month, year) => {
+          setSelectedMonth(month);
+          setSelectedYear(year);
+        }}
+      />
 
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader

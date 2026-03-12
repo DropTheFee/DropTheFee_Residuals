@@ -122,23 +122,23 @@ export default function Commissions() {
     try {
       const { data: results, error } = await supabase
         .from('commission_results')
-        .select(`
-          *,
-          user:users!commission_results_user_id_fkey (
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod);
 
       if (error) throw error;
 
+      const repIds = [...new Set(results?.map(r => r.rep_user_id) || [])];
+      const { data: repUsers } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .in('id', repIds);
+
       const repMap = new Map<string, RepSummary>();
 
       for (const result of results || []) {
-        const repId = result.user_id;
-        const repName = (result as any).user?.full_name || 'Unknown';
+        const repId = result.rep_user_id;
+        const repName = repUsers?.find(u => u.id === repId)?.full_name || 'Unknown';
 
         if (!repMap.has(repId)) {
           repMap.set(repId, {

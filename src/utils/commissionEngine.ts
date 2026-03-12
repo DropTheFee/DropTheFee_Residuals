@@ -390,7 +390,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         agency_id: agencyId,
         period_month: periodMonth,
         status: 'calculated',
-        updated_at: new Date().toISOString(),
       }, {
         onConflict: 'agency_id,period_month'
       });

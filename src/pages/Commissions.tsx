@@ -155,16 +155,16 @@ export default function Commissions() {
         const summary = repMap.get(repId)!;
 
         if (result.source_type === 'merchant') {
-          summary.total_volume = result.total_volume;
+          summary.total_volume = result.volume;
           summary.total_net_residual += result.net_residual;
-          summary.tier_percentage = result.tier_percentage;
+          summary.tier_percentage = result.split_pct;
 
           if (!summary.contracts.includes(result.contract_type)) {
             summary.contracts.push(result.contract_type);
           }
         }
 
-        summary.total_payout += result.payout_amount;
+        summary.total_payout += result.rep_payout;
       }
 
       setRepSummaries(Array.from(repMap.values()));

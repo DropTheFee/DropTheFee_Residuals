@@ -196,7 +196,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         .select('id, full_name, email, sales_rep_id')
         .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
         .eq('role', 'sales_rep')
-        .order('full_name');
+        .order('sales_rep_id', { nullsFirst: false });
 
       if (usersError) {
         console.error('Error fetching users:', usersError);

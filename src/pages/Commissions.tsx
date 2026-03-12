@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { calculateCommissions } from '@/utils/commissionEngine';
 import { toast } from 'sonner';
-import { Loader2, Lock, Unlock, TrendingUp, DollarSign } from 'lucide-react';
+import { Loader as Loader2, Lock, Clock as Unlock, TrendingUp, DollarSign } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,

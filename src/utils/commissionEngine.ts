@@ -74,7 +74,24 @@ function getOverrideTierPercentage(totalVolume: number, tiers: CommissionOverrid
 
 export async function calculateCommissions(periodMonth: string, agencyId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const reportDate = new Date(periodMonth + '-01T12:00:00');
+    const reportDate = new Date(periodMonth + 'T12:00:00');
+
+    const { data: currentPeriod } = await supabase
+      .from('commission_periods')
+      .select('period_month')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth)
+      .maybeSingle();
+
+    if (!currentPeriod) {
+      await supabase
+        .from('commission_periods')
+        .insert({
+          agency_id: agencyId,
+          period_month: periodMonth,
+          status: 'open',
+        });
+    }
 
     const { data: merchants, error: merchantsError } = await supabase
       .from('merchants')

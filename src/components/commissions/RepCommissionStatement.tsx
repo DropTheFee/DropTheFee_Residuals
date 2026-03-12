@@ -108,7 +108,7 @@ export default function RepCommissionStatement({
   };
 
   const formatPeriodMonth = (period: string) => {
-    const date = new Date(period + '-01T12:00:00');
+    const date = new Date(period + 'T12:00:00');
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 

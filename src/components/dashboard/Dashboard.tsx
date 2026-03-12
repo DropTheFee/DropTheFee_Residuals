@@ -5,6 +5,8 @@ import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { startOfQuarter, startOfYear, format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DashboardProps {
   user: User;
@@ -12,12 +14,24 @@ interface DashboardProps {
   onNavigateToCommissions: () => void;
 }
 
+interface AgentRosterRecord {
+  id: string;
+  full_name: string | null;
+  email: string;
+  sales_rep_id: string | null;
+  contract_types: string[];
+}
+
 export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }: DashboardProps) {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [agentRoster, setAgentRoster] = useState<AgentRosterRecord[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
+    if (user.role === 'SuperAdmin') {
+      fetchAgentRoster();
+    }
   }, [user]);
 
   const fetchDashboardData = async () => {
@@ -175,6 +189,51 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
     }
   };
 
+  const fetchAgentRoster = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          full_name,
+          email,
+          sales_rep_id,
+          rep_contracts(contract_type)
+        `)
+        .eq('agency_id', 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622')
+        .eq('role', 'sales_rep')
+        .order('full_name');
+
+      if (error) {
+        console.error('Error fetching agent roster:', error);
+        return;
+      }
+
+      if (data) {
+        const roster: AgentRosterRecord[] = data.map((user: any) => ({
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+          sales_rep_id: user.sales_rep_id,
+          contract_types: user.rep_contracts?.map((rc: any) => rc.contract_type) || [],
+        }));
+        setAgentRoster(roster);
+      }
+    } catch (error) {
+      console.error('Error fetching agent roster:', error);
+    }
+  };
+
+  const formatContractType = (contractType: string): string => {
+    const mapping: Record<string, string> = {
+      sr_sae: 'Sr SAE',
+      jr_ae: 'Jr AE',
+      katlyn_flat: 'Katlyn Flat',
+      venture_apps: 'Venture Apps',
+      sae_override: 'SAE Override',
+    };
+    return mapping[contractType] || contractType;
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -312,6 +371,53 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           </div>
         </div>
       </div>
+
+      {/* Agent Roster - SuperAdmin Only */}
+      {user.role === 'SuperAdmin' && (
+        <div>
+          <Card className="bg-[#16213e] border border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-slate-50">Agent Roster</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700 hover:bg-[#1a1a2e]">
+                    <TableHead className="text-slate-300">Name</TableHead>
+                    <TableHead className="text-slate-300">Email</TableHead>
+                    <TableHead className="text-slate-300">Office Code</TableHead>
+                    <TableHead className="text-slate-300">Contract Type</TableHead>
+                    <TableHead className="text-slate-300">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {agentRoster.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-slate-400">
+                        No agents found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    agentRoster.map((agent) => (
+                      <TableRow key={agent.id} className="border-slate-700 hover:bg-[#1a1a2e]">
+                        <TableCell className="text-slate-50">{agent.full_name || 'N/A'}</TableCell>
+                        <TableCell className="text-slate-300">{agent.email}</TableCell>
+                        <TableCell className="text-slate-300">{agent.sales_rep_id || 'N/A'}</TableCell>
+                        <TableCell className="text-slate-300">
+                          {agent.contract_types.length > 0
+                            ? agent.contract_types.map(formatContractType).join(', ')
+                            : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-slate-400">Dormant</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

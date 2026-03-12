@@ -18,8 +18,8 @@ interface CommissionResult {
   processor: string | null;
   monthly_volume: number;
   net_residual: number;
-  tier_percentage: number;
-  payout_amount: number;
+  split_pct: number;
+  rep_payout: number;
   source_type: string;
   contract_type: string;
   override_from_user_id: string | null;
@@ -95,7 +95,7 @@ export default function RepCommissionStatement({
         .select('*')
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
-        .eq('user_id', repId)
+        .eq('rep_user_id', repId)
         .order('source_type', { ascending: true })
         .order('merchant_name', { ascending: true });
 
@@ -127,8 +127,8 @@ export default function RepCommissionStatement({
   const nabResults = results.filter(r => r.source_type === 'nab');
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
-  const tierPercentage = merchantResults.length > 0 ? merchantResults[0].tier_percentage : 0;
-  const totalPayout = results.reduce((sum, r) => sum + r.payout_amount, 0);
+  const tierPercentage = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
+  const totalPayout = results.reduce((sum, r) => sum + r.rep_payout, 0);
 
   if (loading) {
     return <div className="text-center py-8 text-slate-400">Loading...</div>;
@@ -224,9 +224,9 @@ export default function RepCommissionStatement({
                     <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                       {formatCurrency(result.net_residual)}
                     </TableCell>
-                    <TableCell className="text-right text-slate-300">{result.tier_percentage}%</TableCell>
+                    <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
                     <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.payout_amount)}
+                      {formatCurrency(result.rep_payout)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -262,9 +262,9 @@ export default function RepCommissionStatement({
                     <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                       {formatCurrency(result.net_residual)}
                     </TableCell>
-                    <TableCell className="text-right text-slate-300">{result.tier_percentage}%</TableCell>
+                    <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
                     <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.payout_amount)}
+                      {formatCurrency(result.rep_payout)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -283,7 +283,7 @@ export default function RepCommissionStatement({
             <div className="flex justify-between items-center py-4">
               <div className="text-slate-300">SüRJ Platform Earnings</div>
               <div className="text-2xl font-bold text-green-400">
-                {formatCurrency(surjResults.reduce((sum, r) => sum + r.payout_amount, 0))}
+                {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
               </div>
             </div>
           </CardContent>
@@ -299,7 +299,7 @@ export default function RepCommissionStatement({
             <div className="flex justify-between items-center py-4">
               <div className="text-slate-300">NAB Bonuses</div>
               <div className="text-2xl font-bold text-green-400">
-                {formatCurrency(nabResults.reduce((sum, r) => sum + r.payout_amount, 0))}
+                {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
               </div>
             </div>
           </CardContent>

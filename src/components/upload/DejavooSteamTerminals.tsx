@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { PlusCircle, Pencil, Trash2, Play } from 'lucide-react';
+import { CirclePlus as PlusCircle, Pencil, Trash2, Play } from 'lucide-react';
 
 interface SteamTerminal {
   id: string;

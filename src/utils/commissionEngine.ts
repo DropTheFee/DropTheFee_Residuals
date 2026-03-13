@@ -282,7 +282,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               override_from_user_id: null,
             });
           }
-        } else if (contract.contract_type === 'sae_override' && contract.override_from_user_id) {
+        } else if (contract.contract_type === 'sae_override' && contract.override_target_user_id) {
           const jrAeMerchants = repMerchantMap.get(contract.override_target_user_id) || [];
           const jrAeTotalVolume = jrAeMerchants.reduce((sum, m) => sum + m.monthly_volume, 0);
           const overridePct = getOverrideTierPercentage(jrAeTotalVolume, SAE_OVERRIDE_TIERS);

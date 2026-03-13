@@ -141,6 +141,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
       if (!history) continue;
 
+      const grossResidual = parseFloat(history.monthly_income || 0);
       const expenses = (merchant as any).merchant_expenses
         ?.filter((e: any) => {
           if (!e.matched) return false;
@@ -148,7 +149,8 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         })
         .reduce((sum: number, e: any) => sum + parseFloat(e.expense_amount || 0), 0) || 0;
 
-      const grossResidual = parseFloat(history.monthly_income || 0);
+      if (grossResidual === 0 && expenses === 0) continue;
+
       const netResidual = grossResidual - expenses;
 
       merchantCommissionData.push({

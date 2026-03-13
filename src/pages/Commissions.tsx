@@ -154,11 +154,13 @@ export default function Commissions() {
 
         const summary = repMap.get(repId)!;
 
-        if (result.source_type === 'merchant') {
+        if (result.source_type === 'merchant' && !result.override_from_user_id) {
           summary.total_volume = result.volume;
           summary.total_net_residual += result.net_residual;
           summary.tier_percentage = result.split_pct;
+        }
 
+        if (result.source_type === 'merchant') {
           if (!summary.contracts.includes(result.contract_type)) {
             summary.contracts.push(result.contract_type);
           }

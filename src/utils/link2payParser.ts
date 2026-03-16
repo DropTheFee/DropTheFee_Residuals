@@ -72,10 +72,6 @@ export const parseLink2PayFile = async (
             const residualValue = row[LINK2PAY_CONFIG.residualColumn];
             let residual = parseNumber(residualValue);
 
-            if (residual < 0) {
-              residual = 0;
-            }
-
             const residualPercentage = volume > 0 ? (residual / volume) * 100 : 0;
 
             const normalizedStatus = closeDate ? 'closed' : 'active';

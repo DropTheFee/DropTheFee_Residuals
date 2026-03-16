@@ -11,10 +11,11 @@ export function parseNMIFile(csvText: string): NMIExpenseRecord[] {
 
   const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
   const merchantIdx = headers.indexOf('Merchant');
-  const totalIdx = headers.indexOf('Total');
+  const yourCostIdx = headers.indexOf('Your Cost');
+  const quantityIdx = headers.indexOf('Quantity');
 
-  if (merchantIdx === -1 || totalIdx === -1) {
-    throw new Error('Invalid NMI file format: missing Merchant or Total columns');
+  if (merchantIdx === -1 || yourCostIdx === -1 || quantityIdx === -1) {
+    throw new Error('Invalid NMI file format: missing Merchant, Your Cost, or Quantity columns');
   }
 
   const totals = new Map<string, number>();
@@ -23,8 +24,9 @@ export function parseNMIFile(csvText: string): NMIExpenseRecord[] {
     const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
     if (!cols[merchantIdx]) continue;
     const name = cols[merchantIdx];
-    const amount = parseFloat(cols[totalIdx]) || 0;
-    totals.set(name, (totals.get(name) || 0) + amount);
+    const cost = parseFloat(cols[yourCostIdx]) || 0;
+    const qty = parseFloat(cols[quantityIdx]) || 0;
+    totals.set(name, (totals.get(name) || 0) + (cost * qty));
   }
 
   return Array.from(totals.entries()).map(([merchantName, expenseAmount]) => ({

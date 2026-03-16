@@ -246,7 +246,7 @@ export default function ExpenseUpload({
         .from('expense_name_mappings')
         .select('expense_name, merchant_id')
         .eq('agency_id', agencyId)
-        .eq('expense_source', 'Dejavoo');
+        .eq('expense_source', 'Dejavoo iPosPays');
 
       const matchedExpenses = await matchMerchantsToExpenses(
         expenses,
@@ -261,7 +261,7 @@ export default function ExpenseUpload({
         agency_id: agencyId,
         merchant_id: expense.merchantId || null,
         merchant_name: expense.merchantName,
-        expense_source: 'Dejavoo',
+        expense_source: 'Dejavoo iPosPays',
         expense_amount: expense.expenseAmount,
         report_date: reportDate,
         matched: Boolean(expense.matched),

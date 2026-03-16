@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { parseDejavooFile, matchMerchantsToExpenses, DejavooExpenseRecord } from '@/utils/dejavooParser';
 import { parseAuthNetTxt, AuthNetExpense } from '@/utils/authnetParser';
+import { parseNMIFile, matchNMIMerchants, NMIExpenseRecord } from '@/utils/nmiParser';
+import { parseCyberSourceFile } from '@/utils/cyberSourceParser';
 import UnmatchedMerchantMapping from './UnmatchedMerchantMapping';
 
 interface UploadSummary {
@@ -154,6 +156,11 @@ export default function ExpenseUpload({
         toast.error('Please select a valid .txt file for Auth.net');
         return;
       }
+    } else if (selectedVendor === 'nmi' || selectedVendor === 'cybersource') {
+      if (!selectedFile.name.endsWith('.csv')) {
+        toast.error('Please select a valid .csv file');
+        return;
+      }
     } else {
       if (!selectedFile.name.endsWith('.xlsx')) {
         toast.error('Please select a valid .xlsx file');
@@ -206,6 +213,10 @@ export default function ExpenseUpload({
         await processDejavooFile(file, agencyId);
       } else if (selectedVendor === 'authnet') {
         await processAuthNetFile(file, agencyId);
+      } else if (selectedVendor === 'nmi') {
+        await processNMIFile(file, agencyId);
+      } else if (selectedVendor === 'cybersource') {
+        await processCyberSourceFile(file, agencyId);
       } else {
         toast.error('Unsupported vendor');
       }
@@ -333,6 +344,113 @@ export default function ExpenseUpload({
     }
   }
 
+  async function processNMIFile(file: File, agencyId: string) {
+    try {
+      const csvText = await file.text();
+      const expenses = parseNMIFile(csvText);
+
+      if (expenses.length === 0) {
+        toast.error('No expense records found in NMI file');
+        return;
+      }
+
+      const { data: merchantList } = await supabase
+        .from('merchants')
+        .select('id, merchant_name')
+        .eq('agency_id', agencyId);
+
+      const { data: savedMappings } = await supabase
+        .from('expense_name_mappings')
+        .select('expense_name, merchant_id')
+        .eq('agency_id', agencyId)
+        .eq('expense_source', 'NMI');
+
+      const matchedExpenses = matchNMIMerchants(
+        expenses,
+        merchantList || [],
+        savedMappings || []
+      );
+
+      const month = String(selectedMonth).padStart(2, '0');
+      const reportDate = `${selectedYear}-${month}-01`;
+
+      const expenseRecords = matchedExpenses.map(expense => ({
+        agency_id: agencyId,
+        merchant_id: expense.merchantId || null,
+        merchant_name: expense.merchantName,
+        expense_source: 'NMI',
+        expense_amount: expense.expenseAmount,
+        report_date: reportDate,
+        matched: Boolean(expense.matched),
+      }));
+
+      const { error } = await supabase
+        .from('merchant_expenses')
+        .insert(expenseRecords);
+
+      if (error) throw error;
+
+      const unmatchedCount = matchedExpenses.filter(e => !e.matched).length;
+      if (unmatchedCount > 0) {
+        toast.warning(`Upload complete. ${unmatchedCount} merchants need mapping.`);
+      } else {
+        toast.success(`Successfully uploaded ${expenses.length} NMI expense records`);
+      }
+
+      setFile(null);
+      const input = document.getElementById('expense-file-input') as HTMLInputElement;
+      if (input) input.value = '';
+      await loadUnmatchedExpenses();
+    } catch (error) {
+      console.error('Error processing NMI file:', error);
+      throw error;
+    }
+  }
+
+  async function processCyberSourceFile(file: File, agencyId: string) {
+    try {
+      const csvText = await file.text();
+      const expenses = parseCyberSourceFile(csvText);
+
+      if (expenses.length === 0) {
+        toast.error('No expense records found in CyberSource file');
+        return;
+      }
+
+      const month = String(selectedMonth).padStart(2, '0');
+      const reportDate = `${selectedYear}-${month}-01`;
+
+      const expenseRecords = expenses.map(expense => ({
+        agency_id: agencyId,
+        merchant_id: expense.merchantId,
+        merchant_name: expense.merchantName,
+        expense_source: 'CyberSource',
+        expense_amount: expense.expenseAmount,
+        report_date: reportDate,
+        matched: true,
+      }));
+
+      const { error } = await supabase
+        .from('merchant_expenses')
+        .insert(expenseRecords);
+
+      if (error) throw error;
+
+      const total = expenses.reduce((sum, e) => sum + e.expenseAmount, 0);
+      toast.success(
+        `CyberSource expenses uploaded: $${total.toFixed(2)} split across ${expenses.length} Earnheart accounts`
+      );
+
+      setFile(null);
+      const input = document.getElementById('expense-file-input') as HTMLInputElement;
+      if (input) input.value = '';
+      await loadUnmatchedExpenses();
+    } catch (error) {
+      console.error('Error processing CyberSource file:', error);
+      throw error;
+    }
+  }
+
   async function handleMappingComplete() {
     await loadUnmatchedExpenses();
   }
@@ -407,6 +525,12 @@ export default function ExpenseUpload({
                 <SelectItem value="authnet" className="text-white">
                   Auth.net
                 </SelectItem>
+                <SelectItem value="nmi" className="text-white">
+                  NMI Gateway
+                </SelectItem>
+                <SelectItem value="cybersource" className="text-white">
+                  CyberSource
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -439,13 +563,21 @@ export default function ExpenseUpload({
 
           <div>
             <Label htmlFor="expense-file-input" className="text-slate-300 mb-2 block">
-              Upload File ({selectedVendor === 'authnet' ? '.txt' : '.xlsx'})
+              Upload File ({
+  selectedVendor === 'authnet' ? '.txt' :
+  (selectedVendor === 'nmi' || selectedVendor === 'cybersource') ? '.csv' :
+  '.xlsx'
+})
             </Label>
             <div className="flex items-center gap-4">
               <input
                 id="expense-file-input"
                 type="file"
-                accept={selectedVendor === 'authnet' ? '.txt' : '.xlsx'}
+                accept={
+  selectedVendor === 'authnet' ? '.txt' :
+  (selectedVendor === 'nmi' || selectedVendor === 'cybersource') ? '.csv' :
+  '.xlsx'
+}
                 onChange={handleFileChange}
                 className="hidden"
               />

@@ -18,6 +18,8 @@ interface CommissionResult {
   merchant_name: string;
   processor: string | null;
   monthly_volume: number;
+  gross_residual: number;
+  expenses: number;
   net_residual: number;
   split_pct: number;
   rep_payout: number;
@@ -254,6 +256,8 @@ export default function RepCommissionStatement({
                   <TableHead className="text-slate-300">Merchant Name</TableHead>
                   <TableHead className="text-slate-300">Processor</TableHead>
                   <TableHead className="text-right text-slate-300">Volume</TableHead>
+                  <TableHead className="text-right text-slate-300">Gross Residual</TableHead>
+                  <TableHead className="text-right text-slate-300">Expenses</TableHead>
                   <TableHead className="text-right text-slate-300">Net Residual</TableHead>
                   <TableHead className="text-right text-slate-300">Split %</TableHead>
                   <TableHead className="text-right text-slate-300">Payout</TableHead>
@@ -265,6 +269,10 @@ export default function RepCommissionStatement({
                     <TableCell className="text-white">{result.merchant_name}</TableCell>
                     <TableCell className="text-slate-300">{result.processor || 'N/A'}</TableCell>
                     <TableCell className="text-right text-slate-300">{formatCurrency(result.monthly_volume)}</TableCell>
+                    <TableCell className="text-right text-slate-300">{formatCurrency(result.gross_residual)}</TableCell>
+                    <TableCell className={`text-right ${result.expenses > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                      {result.expenses > 0 ? formatCurrency(-result.expenses) : '$0.00'}
+                    </TableCell>
                     <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                       {formatCurrency(result.net_residual)}
                     </TableCell>

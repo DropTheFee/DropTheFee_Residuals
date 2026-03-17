@@ -88,8 +88,7 @@ export default function ManualExpenses({ selectedPeriod }: ManualExpensesProps) 
 
     let query = supabase
       .from("users")
-      .select("id, full_name, email, role")
-      .in("role", ["sales_rep", "admin", "junior_sales_rep"]);
+      .select("id, full_name, email");
 
     if (currentUser.role !== "superadmin") {
       query = query.eq("agency_id", currentUser.agency_id);

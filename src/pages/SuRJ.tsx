@@ -47,9 +47,9 @@ interface SurjEntry {
 }
 
 const ENTRY_TYPES = [
-  "Monthly Subscription",
-  "Setup Fee - Full Pay",
-  "Setup Fee - Split Pay Installment",
+  { label: "Monthly Subscription", value: "subscription" },
+  { label: "Setup Fee - Full Pay", value: "setup_full" },
+  { label: "Setup Fee - Split Pay Installment", value: "setup_split" },
 ];
 
 export default function SuRJ() {
@@ -172,15 +172,20 @@ export default function SuRJ() {
 
   const calculateCommission = (entryType: string, amount: number): number => {
     switch (entryType) {
-      case "Monthly Subscription":
+      case "subscription":
         return amount * 0.5;
-      case "Setup Fee - Full Pay":
+      case "setup_full":
         return amount >= 1500 ? amount * 0.15 : 0;
-      case "Setup Fee - Split Pay Installment":
+      case "setup_split":
         return amount * 0.1;
       default:
         return 0;
     }
+  };
+
+  const getEntryTypeLabel = (entryType: string): string => {
+    const type = ENTRY_TYPES.find((t) => t.value === entryType);
+    return type ? type.label : entryType;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -362,8 +367,8 @@ export default function SuRJ() {
                   </SelectTrigger>
                   <SelectContent>
                     {ENTRY_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -437,7 +442,7 @@ export default function SuRJ() {
                   <TableRow key={entry.id}>
                     <TableCell>{entry.rep_name}</TableCell>
                     <TableCell>{entry.merchant_name}</TableCell>
-                    <TableCell>{entry.entry_type}</TableCell>
+                    <TableCell>{getEntryTypeLabel(entry.entry_type)}</TableCell>
                     <TableCell>${entry.amount.toFixed(2)}</TableCell>
                     <TableCell className="font-semibold text-green-600">
                       ${entry.commission?.toFixed(2)}

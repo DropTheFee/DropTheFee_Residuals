@@ -46,6 +46,8 @@ export default function Commissions() {
   const [expandedRep, setExpandedRep] = useState<string | null>(null);
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [showRecurringExpensesDialog, setShowRecurringExpensesDialog] = useState(false);
+  const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
   const [agencyId, setAgencyId] = useState<string>('');
 
   useEffect(() => {
@@ -179,7 +181,88 @@ export default function Commissions() {
     }
   };
 
-  const handleCalculate = async () => {
+  const checkRecurringExpenses = async () => {
+    if (!selectedPeriod || !agencyId) return false;
+
+    try {
+      const currentPeriodDate = new Date(selectedPeriod + 'T12:00:00Z');
+      const previousPeriodDate = new Date(currentPeriodDate);
+      previousPeriodDate.setMonth(previousPeriodDate.getMonth() - 1);
+      const previousPeriod = previousPeriodDate.toISOString();
+
+      const { data: currentExpenses } = await supabase
+        .from('expenses')
+        .select('user_id, description, amount')
+        .eq('agency_id', agencyId)
+        .eq('period_month', currentPeriodDate.toISOString())
+        .eq('expense_type', 'manual')
+        .eq('status', 'active');
+
+      const currentExpenseKeys = new Set(
+        (currentExpenses || []).map((e: any) => `${e.user_id}-${e.description}`)
+      );
+
+      const { data: previousRecurringExpenses } = await supabase
+        .from('expenses')
+        .select('id, user_id, description, amount, users!expenses_user_id_fkey(full_name)')
+        .eq('agency_id', agencyId)
+        .eq('period_month', previousPeriod)
+        .eq('expense_type', 'manual')
+        .eq('recurring', true)
+        .eq('status', 'active');
+
+      const unappliedExpenses = (previousRecurringExpenses || []).filter((e: any) => {
+        const key = `${e.user_id}-${e.description}`;
+        return !currentExpenseKeys.has(key);
+      });
+
+      if (unappliedExpenses.length > 0) {
+        setRecurringExpenses(unappliedExpenses);
+        setShowRecurringExpensesDialog(true);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking recurring expenses:', error);
+      return false;
+    }
+  };
+
+  const applyRecurringExpenses = async () => {
+    if (!selectedPeriod || !agencyId) return;
+
+    try {
+      const currentPeriodDate = new Date(selectedPeriod + 'T12:00:00Z');
+      const expenseDate = new Date(currentPeriodDate);
+      expenseDate.setDate(1);
+
+      const newExpenses = recurringExpenses.map((e: any) => ({
+        agency_id: agencyId,
+        user_id: e.user_id,
+        expense_type: 'manual',
+        amount: e.amount,
+        description: e.description,
+        expense_date: expenseDate.toISOString(),
+        recurring: true,
+        period_month: currentPeriodDate.toISOString(),
+        status: 'active',
+      }));
+
+      const { error } = await supabase.from('expenses').insert(newExpenses);
+
+      if (error) throw error;
+
+      toast.success(`Applied ${newExpenses.length} recurring expense(s)`);
+      setShowRecurringExpensesDialog(false);
+      await runCalculation();
+    } catch (error) {
+      console.error('Error applying recurring expenses:', error);
+      toast.error('Failed to apply recurring expenses');
+    }
+  };
+
+  const runCalculation = async () => {
     if (!selectedPeriod || !agencyId) return;
 
     setCalculating(true);
@@ -198,6 +281,13 @@ export default function Commissions() {
       toast.error('Failed to calculate commissions');
     } finally {
       setCalculating(false);
+    }
+  };
+
+  const handleCalculate = async () => {
+    const hasRecurring = await checkRecurringExpenses();
+    if (!hasRecurring) {
+      await runCalculation();
     }
   };
 
@@ -436,6 +526,37 @@ export default function Commissions() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleUnlock}>Unlock</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRecurringExpensesDialog} onOpenChange={setShowRecurringExpensesDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recurring Expenses Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have {recurringExpenses.length} recurring expense(s) from last period:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-60 overflow-y-auto">
+            <ul className="space-y-2">
+              {recurringExpenses.map((expense: any, index: number) => (
+                <li key={index} className="text-sm">
+                  <span className="font-semibold">{expense.users?.full_name || 'Unknown'}</span>
+                  {' — '}
+                  <span>{expense.description}</span>
+                  {' — '}
+                  <span className="text-green-600">{formatCurrency(expense.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogDescription className="mt-2">
+            Apply these to {formatPeriodMonth(selectedPeriod)}?
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => runCalculation()}>Skip</AlertDialogCancel>
+            <AlertDialogAction onClick={applyRecurringExpenses}>Apply All</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

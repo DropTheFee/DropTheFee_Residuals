@@ -315,29 +315,43 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       }
     }
 
+    const periodDate = new Date(periodMonth + 'T12:00:00Z');
     const { data: surjEntries } = await supabase
       .from('surj_entries')
-      .select('user_id, amount')
+      .select('rep_user_id, merchant_name, entry_type, amount')
       .eq('agency_id', agencyId)
-      .eq('period_month', periodMonth);
+      .eq('period_month', periodDate.toISOString());
 
     for (const entry of surjEntries || []) {
+      let commission = 0;
+      switch (entry.entry_type) {
+        case 'Monthly Subscription':
+          commission = entry.amount * 0.5;
+          break;
+        case 'Setup Fee - Full Pay':
+          commission = entry.amount >= 1500 ? entry.amount * 0.15 : 0;
+          break;
+        case 'Setup Fee - Split Pay Installment':
+          commission = entry.amount * 0.1;
+          break;
+      }
+
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: entry.user_id,
+        rep_user_id: entry.rep_user_id,
         merchant_id: null,
         contract_type: 'surj',
         source_type: 'surj',
-        merchant_name: 'SüRJ Platform',
+        merchant_name: entry.merchant_name,
         processor: null,
         volume: 0,
         monthly_volume: 0,
-        gross_residual: 0,
+        gross_residual: entry.amount,
         expenses: 0,
-        net_residual: 0,
+        net_residual: entry.amount,
         split_pct: 0,
-        rep_payout: entry.amount,
+        rep_payout: commission,
         override_from_user_id: null,
       });
     }
@@ -373,6 +387,72 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         rep_payout: totalAmount,
         override_from_user_id: null,
       });
+    }
+
+    const { data: manualExpenses } = await supabase
+      .from('expenses')
+      .select('user_id, description, amount')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodDate.toISOString())
+      .eq('expense_type', 'manual')
+      .eq('status', 'active');
+
+    for (const expense of manualExpenses || []) {
+      commissionResults.push({
+        agency_id: agencyId,
+        period_month: periodMonth,
+        rep_user_id: expense.user_id,
+        merchant_id: null,
+        contract_type: 'expense',
+        source_type: 'expense',
+        merchant_name: expense.description,
+        processor: null,
+        volume: 0,
+        monthly_volume: 0,
+        gross_residual: 0,
+        expenses: expense.amount,
+        net_residual: -expense.amount,
+        split_pct: 0,
+        rep_payout: -expense.amount,
+        override_from_user_id: null,
+      });
+    }
+
+    const repTotals = new Map<string, number>();
+    const repContractsMap = new Map<string, string>();
+    for (const result of commissionResults) {
+      const current = repTotals.get(result.rep_user_id) || 0;
+      repTotals.set(result.rep_user_id, current + result.rep_payout);
+
+      if (result.contract_type && !['surj', 'nab', 'expense'].includes(result.contract_type)) {
+        repContractsMap.set(result.rep_user_id, result.contract_type);
+      }
+    }
+
+    const jordanId = repContracts?.find(c => c.contract_type === 'sae_override')?.user_id;
+
+    for (const [repId, total] of repTotals.entries()) {
+      const contractType = repContractsMap.get(repId);
+      if (total < 0 && contractType === 'jr_ae' && jordanId) {
+        commissionResults.push({
+          agency_id: agencyId,
+          period_month: periodMonth,
+          rep_user_id: jordanId,
+          merchant_id: null,
+          contract_type: 'jr_ae_negative_rollup',
+          source_type: 'expense',
+          merchant_name: `Jr AE Negative Balance Rollup`,
+          processor: null,
+          volume: 0,
+          monthly_volume: 0,
+          gross_residual: 0,
+          expenses: Math.abs(total),
+          net_residual: total,
+          split_pct: 0,
+          rep_payout: total,
+          override_from_user_id: repId,
+        });
+      }
     }
 
     console.log('Inserting rows:', commissionResults.length);

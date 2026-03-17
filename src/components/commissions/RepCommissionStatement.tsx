@@ -131,6 +131,7 @@ export default function RepCommissionStatement({
   const overrideResults = results.filter(r => r.source_type === 'merchant' && r.override_from_user_id);
   const surjResults = results.filter(r => r.source_type === 'surj');
   const nabResults = results.filter(r => r.source_type === 'nab');
+  const expenseResults = results.filter(r => r.source_type === 'expense' && r.contract_type === 'expense');
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
   const tierPercentage = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
@@ -346,12 +347,68 @@ export default function RepCommissionStatement({
             <CardTitle className="text-white">SüRJ Platform</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-between items-center py-4">
-              <div className="text-slate-300">SüRJ Platform Earnings</div>
-              <div className="text-2xl font-bold text-green-400">
-                {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
-              </div>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Client/Company</TableHead>
+                  <TableHead className="text-slate-300">Entry Type</TableHead>
+                  <TableHead className="text-right text-slate-300">Revenue</TableHead>
+                  <TableHead className="text-right text-slate-300">Commission</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {surjResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className="text-slate-300">{result.contract_type === 'surj' ? 'SüRJ' : 'N/A'}</TableCell>
+                    <TableCell className="text-right text-slate-300">{formatCurrency(result.gross_residual)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-400">
+                      {formatCurrency(result.rep_payout)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">SüRJ Subtotal</TableCell>
+                  <TableCell className="text-right font-bold text-green-400">
+                    {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {expenseResults.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Rep Deductions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Description</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {expenseResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className="text-right font-medium text-red-400">
+                      {formatCurrency(result.expenses)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell className="text-right font-semibold text-slate-300">Total Deductions</TableCell>
+                  <TableCell className="text-right font-bold text-red-400">
+                    {formatCurrency(expenseResults.reduce((sum, r) => sum + r.expenses, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

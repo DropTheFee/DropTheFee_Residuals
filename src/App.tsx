@@ -15,6 +15,7 @@ import Index from './pages/Index';
 import ResetPassword from './pages/ResetPassword';
 import AddAgent from './pages/AddAgent';
 import Commissions from './pages/Commissions';
+import SuRJ from './pages/SuRJ';
 import { User } from '@/types';
 import { ViewAsProvider } from '@/contexts/ViewAsContext';
 
@@ -146,6 +147,7 @@ const App = () => {
               <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
               <Route path="/merchants" element={<ProtectedRoute><Merchants /></ProtectedRoute>} />
               <Route path="/processors" element={<ProtectedRoute><Processors /></ProtectedRoute>} />
+              <Route path="/surj" element={<ProtectedRoute><SuRJ /></ProtectedRoute>} />
               <Route path="/add-agent" element={<ProtectedRoute><AddAgent /></ProtectedRoute>} />
               <Route path="/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />

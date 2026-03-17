@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight, UserPlus, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Upload, Users, Settings, ChevronLeft, ChevronRight, UserPlus, DollarSign, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { User } from '@/types';
@@ -12,6 +12,7 @@ const menuItems = [
   { icon: Users, label: 'Merchants', path: '/merchants' },
   { icon: DollarSign, label: 'Commissions', path: '/commissions' },
   { icon: Settings, label: 'Processors', path: '/processors', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
+  { icon: Sparkles, label: 'SüRJ', path: '/surj', restrictedRoles: ['sales_rep', 'junior_sales_rep'] },
   { icon: UserPlus, label: 'Add Agent', path: '/add-agent', allowedRoles: ['SuperAdmin'] },
 ];
 

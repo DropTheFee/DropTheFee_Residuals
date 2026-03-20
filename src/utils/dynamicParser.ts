@@ -39,7 +39,8 @@ export const parseFileWithMapping = async (
       const dba = mapping.dba_column ? String(row[mapping.dba_column] || '').trim() : undefined;
       const volumeStr = mapping.volume_column ? String(row[mapping.volume_column] || '0') : '0';
       const residualStr = mapping.residual_column ? String(row[mapping.residual_column] || '0') : '0';
-      const status = mapping.status_column ? String(row[mapping.status_column] || '').trim() : undefined;
+      const rawStatus = mapping.status_column ? String(row[mapping.status_column] || '').trim() : undefined;
+      const status = rawStatus && rawStatus.toLowerCase() === 'open' ? 'active' : rawStatus;
       const repPayoutStr = mapping.rep_payout_column ? String(row[mapping.rep_payout_column] || '0') : undefined;
 
       if (!mid || !merchantName) {

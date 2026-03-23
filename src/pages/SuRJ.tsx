@@ -60,8 +60,11 @@ export default function SuRJ() {
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  const [sharedPeriod, setSharedPeriod] = useState(
+    format(startOfMonth(new Date()), "yyyy-MM")
+  );
+
   const [formData, setFormData] = useState({
-    period: format(startOfMonth(new Date()), "yyyy-MM"),
     repId: "",
     merchantName: "",
     entryType: "",
@@ -69,7 +72,6 @@ export default function SuRJ() {
   });
 
   const [expenseFormData, setExpenseFormData] = useState({
-    period: format(startOfMonth(new Date()), "yyyy-MM"),
     repId: "",
     clientName: "",
     description: "",
@@ -229,7 +231,7 @@ export default function SuRJ() {
     if (!currentUser) return;
 
     if (
-      !formData.period ||
+      !sharedPeriod ||
       !formData.repId ||
       !formData.merchantName ||
       !formData.entryType ||
@@ -245,12 +247,13 @@ export default function SuRJ() {
 
     setLoading(true);
 
-    const periodDate = new Date(formData.period + "-01T12:00:00Z");
+    const [year, month] = sharedPeriod.split('-').map(Number);
+    const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
 
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
       rep_user_id: formData.repId,
-      period_month: periodDate.toISOString(),
+      period_month: periodMonth,
       entry_type: formData.entryType,
       amount: parseFloat(formData.amount),
       merchant_name: formData.merchantName,
@@ -274,7 +277,6 @@ export default function SuRJ() {
     });
 
     setFormData({
-      period: format(startOfMonth(new Date()), "yyyy-MM"),
       repId: "",
       merchantName: "",
       entryType: "",
@@ -309,7 +311,7 @@ export default function SuRJ() {
     if (!currentUser) return;
 
     if (
-      !expenseFormData.period ||
+      !sharedPeriod ||
       !expenseFormData.repId ||
       !expenseFormData.clientName ||
       !expenseFormData.description ||
@@ -325,13 +327,14 @@ export default function SuRJ() {
 
     setLoading(true);
 
-    const periodDate = new Date(expenseFormData.period + "-01T12:00:00Z");
+    const [year, month] = sharedPeriod.split('-').map(Number);
+    const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
     const expenseAmount = -Math.abs(parseFloat(expenseFormData.amount));
 
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
       rep_user_id: expenseFormData.repId,
-      period_month: periodDate.toISOString(),
+      period_month: periodMonth,
       entry_type: "expense",
       amount: expenseAmount,
       merchant_name: expenseFormData.clientName,
@@ -355,7 +358,6 @@ export default function SuRJ() {
     });
 
     setExpenseFormData({
-      period: format(startOfMonth(new Date()), "yyyy-MM"),
       repId: "",
       clientName: "",
       description: "",
@@ -401,10 +403,8 @@ export default function SuRJ() {
               <div className="space-y-2">
                 <Label htmlFor="period">Period</Label>
                 <Select
-                  value={formData.period}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, period: value })
-                  }
+                  value={sharedPeriod}
+                  onValueChange={setSharedPeriod}
                 >
                   <SelectTrigger id="period">
                     <SelectValue placeholder="Select period" />
@@ -508,10 +508,8 @@ export default function SuRJ() {
               <div className="space-y-2">
                 <Label htmlFor="expensePeriod">Period</Label>
                 <Select
-                  value={expenseFormData.period}
-                  onValueChange={(value) =>
-                    setExpenseFormData({ ...expenseFormData, period: value })
-                  }
+                  value={sharedPeriod}
+                  onValueChange={setSharedPeriod}
                 >
                   <SelectTrigger id="expensePeriod">
                     <SelectValue placeholder="Select period" />

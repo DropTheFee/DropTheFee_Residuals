@@ -24,9 +24,16 @@ interface ExpenseStatus {
   status: 'uploaded' | 'missing';
 }
 
+interface NABStatus {
+  record_count: number;
+  total_amount: number;
+  status: 'uploaded' | 'missing';
+}
+
 export default function UploadStatus({ selectedMonth, selectedYear }: UploadStatusProps) {
   const [processorStatuses, setProcessorStatuses] = useState<ProcessorStatus[]>([]);
   const [expenseStatuses, setExpenseStatuses] = useState<ExpenseStatus[]>([]);
+  const [nabStatus, setNabStatus] = useState<NABStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string>('');
 
@@ -147,6 +154,30 @@ export default function UploadStatus({ selectedMonth, selectedYear }: UploadStat
       });
 
       setExpenseStatuses(expenseStatusList);
+
+      const periodMonthNAB = `${selectedYear}-${month}`;
+      const { data: nabData, error: nabError } = await supabase
+        .from('nab_records')
+        .select('amount')
+        .eq('agency_id', agencyId)
+        .eq('period_month', periodMonthNAB);
+
+      if (nabError) {
+        console.error('Error loading NAB status:', nabError);
+      } else if (nabData && nabData.length > 0) {
+        const totalAmount = nabData.reduce((sum, record) => sum + (record.amount || 0), 0);
+        setNabStatus({
+          record_count: nabData.length,
+          total_amount: totalAmount,
+          status: 'uploaded',
+        });
+      } else {
+        setNabStatus({
+          record_count: 0,
+          total_amount: 0,
+          status: 'missing',
+        });
+      }
     } catch (error) {
       console.error('Error loading upload status:', error);
     } finally {
@@ -267,6 +298,44 @@ export default function UploadStatus({ selectedMonth, selectedYear }: UploadStat
             <p className="text-slate-400 text-sm">No expense files uploaded for this period.</p>
           )}
         </div>
+
+        {nabStatus && (
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-3">EPI New Account Bonus (NAB)</h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Source</TableHead>
+                  <TableHead className="text-right text-slate-300">Record Count</TableHead>
+                  <TableHead className="text-right text-slate-300">Total Amount</TableHead>
+                  <TableHead className="text-center text-slate-300">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow className="border-slate-700">
+                  <TableCell className="text-white">EPI NAB</TableCell>
+                  <TableCell className="text-right text-slate-300">
+                    {nabStatus.record_count.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-slate-300">
+                    {formatCurrency(nabStatus.total_amount)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {nabStatus.status === 'uploaded' ? (
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                        Uploaded
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-500/20 text-red-400 border-red-500/50">
+                        Missing
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

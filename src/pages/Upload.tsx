@@ -5,8 +5,9 @@ import ExpenseUpload from '@/components/upload/ExpenseUpload';
 import UploadStatus from '@/components/upload/UploadStatus';
 import DejavooSteamTerminals from '@/components/upload/DejavooSteamTerminals';
 import ManualExpenses from '@/components/upload/ManualExpenses';
+import { NABUpload } from '@/components/upload/NABUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const getPreviousMonth = () => {
@@ -22,6 +23,7 @@ export default function Upload() {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [steamTerminalsOpen, setSteamTerminalsOpen] = useState(false);
   const [manualExpensesOpen, setManualExpensesOpen] = useState(false);
+  const [nabOpen, setNabOpen] = useState(false);
   const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
   const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
   const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
@@ -82,6 +84,30 @@ export default function Upload() {
           setSelectedYear(year);
         }}
       />
+
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader
+          className="cursor-pointer hover:bg-slate-800/30 transition-colors"
+          onClick={() => setNabOpen(!nabOpen)}
+        >
+          <CardTitle className="text-white flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Gift className="h-5 w-5" />
+              EPI New Account Bonus (NAB)
+            </span>
+            {nabOpen ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronRight className="h-5 w-5" />
+            )}
+          </CardTitle>
+        </CardHeader>
+        {nabOpen && (
+          <CardContent className="pt-0">
+            <NABUpload />
+          </CardContent>
+        )}
+      </Card>
 
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader

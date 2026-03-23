@@ -424,7 +424,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       const current = repTotals.get(result.rep_user_id) || 0;
       repTotals.set(result.rep_user_id, current + result.rep_payout);
 
-      if (result.contract_type && !['surj', 'nab', 'expense'].includes(result.contract_type)) {
+      if (result.contract_type && !['surj', 'nab', 'subscription', 'setup_full', 'setup_split', 'expense', 'manual_expense'].includes(result.contract_type)) {
         repContractsMap.set(result.rep_user_id, result.contract_type);
       }
     }

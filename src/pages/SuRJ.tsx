@@ -60,7 +60,7 @@ export default function SuRJ() {
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const [sharedPeriod, setSharedPeriod] = useState(
+  const [selectedPeriod, setSelectedPeriod] = useState(
     format(startOfMonth(new Date()), "yyyy-MM")
   );
 
@@ -78,10 +78,6 @@ export default function SuRJ() {
     amount: "",
     recurring: false,
   });
-
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    format(startOfMonth(new Date()), "yyyy-MM")
-  );
 
   useEffect(() => {
     fetchCurrentUser();
@@ -173,52 +169,92 @@ export default function SuRJ() {
       return;
     }
 
-    const entriesWithCommission = (data || []).map((entry: any) => {
-      const amount = entry.entry_type === 'expense' ? Math.abs(entry.amount) : entry.amount;
-      return {
-        ...entry,
-        rep_name: entry.rep?.full_name || "Unknown",
-        commission: calculateCommission(entry.entry_type, amount),
-      };
-    });
-
-    setEntries(entriesWithCommission);
+    setEntries((data || []).map((entry: any) => ({
+      ...entry,
+      rep_name: entry.rep?.full_name || "Unknown",
+    })));
   };
 
-  const calculateCommission = (entryType: string, amount: number): number => {
-    switch (entryType) {
-      case "subscription":
-        return amount * 0.5;
-      case "setup_full":
-        return amount >= 1500 ? amount * 0.15 : 0;
-      case "setup_split":
-        return amount * 0.1;
-      case "expense":
-        return 0;
-      default:
-        return 0;
-    }
-  };
-
-  const calculateClientStats = () => {
-    const clientStats = new Map<string, { revenue: number; expenses: number; net: number; repId: string; repName: string }>();
+  const processEntriesForDisplay = () => {
+    const expensesMap = new Map<string, { total: number; entries: SurjEntry[] }>();
 
     entries.forEach((entry) => {
-      const key = `${entry.rep_user_id}-${entry.merchant_name}`;
-      if (!clientStats.has(key)) {
-        clientStats.set(key, { revenue: 0, expenses: 0, net: 0, repId: entry.rep_user_id, repName: entry.rep_name || "" });
-      }
-      const stats = clientStats.get(key)!;
-
       if (entry.entry_type === 'expense') {
-        stats.expenses += Math.abs(entry.amount);
-      } else {
-        stats.revenue += entry.amount;
+        const key = `${entry.rep_user_id}-${entry.merchant_name}`;
+        const current = expensesMap.get(key) || { total: 0, entries: [] };
+        current.total += Math.abs(entry.amount);
+        current.entries.push(entry);
+        expensesMap.set(key, current);
       }
-      stats.net = stats.revenue - stats.expenses;
     });
 
-    return clientStats;
+    const displayEntries: any[] = [];
+    const processedExpenses = new Set<string>();
+
+    entries.forEach(entry => {
+      if (entry.entry_type === 'expense') {
+        return;
+      }
+
+      const key = `${entry.rep_user_id}-${entry.merchant_name}`;
+      const expenseData = expensesMap.get(key);
+      const expenseAmount = expenseData?.total || 0;
+      const netRevenue = Math.max(0, entry.amount - expenseAmount);
+
+      let commission = 0;
+      if (netRevenue > 0) {
+        switch (entry.entry_type) {
+          case "subscription":
+            commission = netRevenue * 0.5;
+            break;
+          case "setup_full":
+            commission = entry.amount >= 1500 ? netRevenue * 0.15 : 0;
+            break;
+          case "setup_split":
+            commission = netRevenue * 0.1;
+            break;
+        }
+      }
+
+      displayEntries.push({
+        ...entry,
+        expenseAmount,
+        netRevenue,
+        commission,
+        isExpenseRow: false,
+      });
+
+      if (expenseData && !processedExpenses.has(key)) {
+        processedExpenses.add(key);
+        expenseData.entries.forEach(expenseEntry => {
+          displayEntries.push({
+            ...expenseEntry,
+            expenseAmount: 0,
+            netRevenue: 0,
+            commission: 0,
+            isExpenseRow: true,
+          });
+        });
+      }
+    });
+
+    entries.forEach(entry => {
+      if (entry.entry_type === 'expense') {
+        const key = `${entry.rep_user_id}-${entry.merchant_name}`;
+        if (!processedExpenses.has(key)) {
+          processedExpenses.add(key);
+          displayEntries.push({
+            ...entry,
+            expenseAmount: 0,
+            netRevenue: 0,
+            commission: 0,
+            isExpenseRow: true,
+          });
+        }
+      }
+    });
+
+    return displayEntries;
   };
 
   const getEntryTypeLabel = (entryType: string): string => {
@@ -231,7 +267,7 @@ export default function SuRJ() {
     if (!currentUser) return;
 
     if (
-      !sharedPeriod ||
+      !selectedPeriod ||
       !formData.repId ||
       !formData.merchantName ||
       !formData.entryType ||
@@ -247,7 +283,7 @@ export default function SuRJ() {
 
     setLoading(true);
 
-    const [year, month] = sharedPeriod.split('-').map(Number);
+    const [year, month] = selectedPeriod.split('-').map(Number);
     const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
 
     const { error } = await supabase.from("surj_entries").insert({
@@ -311,7 +347,7 @@ export default function SuRJ() {
     if (!currentUser) return;
 
     if (
-      !sharedPeriod ||
+      !selectedPeriod ||
       !expenseFormData.repId ||
       !expenseFormData.clientName ||
       !expenseFormData.description ||
@@ -327,7 +363,7 @@ export default function SuRJ() {
 
     setLoading(true);
 
-    const [year, month] = sharedPeriod.split('-').map(Number);
+    const [year, month] = selectedPeriod.split('-').map(Number);
     const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
     const expenseAmount = -Math.abs(parseFloat(expenseFormData.amount));
 
@@ -403,8 +439,8 @@ export default function SuRJ() {
               <div className="space-y-2">
                 <Label htmlFor="period">Period</Label>
                 <Select
-                  value={sharedPeriod}
-                  onValueChange={setSharedPeriod}
+                  value={selectedPeriod}
+                  onValueChange={setSelectedPeriod}
                 >
                   <SelectTrigger id="period">
                     <SelectValue placeholder="Select period" />
@@ -508,8 +544,8 @@ export default function SuRJ() {
               <div className="space-y-2">
                 <Label htmlFor="expensePeriod">Period</Label>
                 <Select
-                  value={sharedPeriod}
-                  onValueChange={setSharedPeriod}
+                  value={selectedPeriod}
+                  onValueChange={setSelectedPeriod}
                 >
                   <SelectTrigger id="expensePeriod">
                     <SelectValue placeholder="Select period" />
@@ -648,32 +684,53 @@ export default function SuRJ() {
                 </TableRow>
               ) : (
                 (() => {
-                  const clientStats = calculateClientStats();
-                  return entries.map((entry) => {
-                    const key = `${entry.rep_user_id}-${entry.merchant_name}`;
-                    const stats = clientStats.get(key);
-                    const isExpense = entry.entry_type === 'expense';
-                    const displayAmount = isExpense ? Math.abs(entry.amount) : entry.amount;
+                  const displayEntries = processEntriesForDisplay();
+                  return displayEntries.map((entry: any) => {
+                    const periodDate = new Date(entry.period_month.replace(/Z$/, '') + (entry.period_month.includes('T') ? '' : 'T12:00:00'));
+
+                    if (entry.isExpenseRow) {
+                      return (
+                        <TableRow key={entry.id} className="bg-red-50 dark:bg-red-950/20">
+                          <TableCell>{entry.rep_name}</TableCell>
+                          <TableCell>{entry.merchant_name}</TableCell>
+                          <TableCell className="text-red-600 font-semibold">Expense</TableCell>
+                          <TableCell className="text-red-600">-${Math.abs(entry.amount).toFixed(2)}</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>
+                            {format(periodDate, "MMMM yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(entry.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
 
                     return (
-                      <TableRow key={entry.id} className={isExpense ? "bg-red-50" : ""}>
+                      <TableRow key={entry.id}>
                         <TableCell>{entry.rep_name}</TableCell>
                         <TableCell>{entry.merchant_name}</TableCell>
-                        <TableCell>{isExpense ? "Expense" : getEntryTypeLabel(entry.entry_type)}</TableCell>
-                        <TableCell className={isExpense ? "text-red-600" : ""}>
-                          {isExpense ? "-" : ""}${displayAmount.toFixed(2)}
-                        </TableCell>
+                        <TableCell>{getEntryTypeLabel(entry.entry_type)}</TableCell>
+                        <TableCell>${entry.amount.toFixed(2)}</TableCell>
                         <TableCell className="text-red-600">
-                          {stats && stats.expenses > 0 ? `-$${stats.expenses.toFixed(2)}` : "$0.00"}
+                          {entry.expenseAmount > 0 ? `-$${entry.expenseAmount.toFixed(2)}` : "$0.00"}
                         </TableCell>
                         <TableCell className="font-semibold">
-                          {stats ? `$${stats.net.toFixed(2)}` : `$${entry.amount.toFixed(2)}`}
+                          ${entry.netRevenue.toFixed(2)}
                         </TableCell>
                         <TableCell className="font-semibold text-green-600">
-                          {isExpense ? "$0.00" : `$${entry.commission?.toFixed(2)}`}
+                          ${entry.commission.toFixed(2)}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(entry.period_month), "MMMM yyyy")}
+                          {format(periodDate, "MMMM yyyy")}
                         </TableCell>
                         <TableCell>
                           <Button

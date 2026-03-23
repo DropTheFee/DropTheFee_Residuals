@@ -320,18 +320,18 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .from('surj_entries')
       .select('rep_user_id, merchant_name, entry_type, amount')
       .eq('agency_id', agencyId)
-      .eq('period_month', periodDate.toISOString());
+      .eq('period_month', periodMonth);
 
     for (const entry of surjEntries || []) {
       let commission = 0;
       switch (entry.entry_type) {
-        case 'Monthly Subscription':
+        case 'subscription':
           commission = entry.amount * 0.5;
           break;
-        case 'Setup Fee - Full Pay':
+        case 'setup_full':
           commission = entry.amount >= 1500 ? entry.amount * 0.15 : 0;
           break;
-        case 'Setup Fee - Split Pay Installment':
+        case 'setup_split':
           commission = entry.amount * 0.1;
           break;
       }
@@ -358,14 +358,14 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
     const { data: nabRecords } = await supabase
       .from('nab_records')
-      .select('rep_user_id, merchant_name, bonus_amount')
+      .select('rep_user_id, merchant_name, amount')
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth);
 
     const nabByRep = new Map<string, number>();
     for (const nab of nabRecords || []) {
       const current = nabByRep.get(nab.rep_user_id) || 0;
-      nabByRep.set(nab.rep_user_id, current + parseFloat(nab.bonus_amount));
+      nabByRep.set(nab.rep_user_id, current + parseFloat(nab.amount));
     }
 
     for (const [repId, totalAmount] of nabByRep.entries()) {
@@ -393,7 +393,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .from('expenses')
       .select('user_id, description, amount')
       .eq('agency_id', agencyId)
-      .eq('period_month', periodDate.toISOString())
+      .eq('period_month', periodMonth)
       .eq('expense_type', 'manual')
       .eq('status', 'active');
 
@@ -439,7 +439,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           period_month: periodMonth,
           rep_user_id: jordanId,
           merchant_id: null,
-          contract_type: 'jr_ae_negative_rollup',
+          contract_type: 'jr_ae',
           source_type: 'expense',
           merchant_name: `Jr AE Negative Balance Rollup`,
           processor: null,

@@ -51,7 +51,7 @@ export default function PendingMappings() {
       const { data: profile } = await supabase
         .from('users')
         .select('agency_id')
-        .eq('auth_id', authUser.id)
+        .eq('id', authUser.id)
         .single();
 
       if (profile?.agency_id) {

@@ -77,7 +77,7 @@ export default function ManualExpenses({ selectedPeriod }: ManualExpensesProps) 
     const { data } = await supabase
       .from("users")
       .select("*")
-      .eq("auth_id", user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     setCurrentUser(data);

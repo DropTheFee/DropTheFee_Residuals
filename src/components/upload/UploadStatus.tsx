@@ -155,7 +155,7 @@ export default function UploadStatus({ selectedMonth, selectedYear }: UploadStat
 
       setExpenseStatuses(expenseStatusList);
 
-      const periodMonthNAB = `${selectedYear}-${month}`;
+      const periodMonthNAB = `${selectedYear}-${month.padStart(2, '0')}-01`;
       const { data: nabData, error: nabError } = await supabase
         .from('nab_records')
         .select('amount')

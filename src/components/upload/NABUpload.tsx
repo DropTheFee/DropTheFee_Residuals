@@ -65,7 +65,7 @@ export function NABUpload() {
         return;
       }
 
-      const periodMonth = `${selectedYear}-${selectedMonth.padStart(2, '0')}`;
+      const periodMonth = `${selectedYear}-${selectedMonth.padStart(2, '0')}-01T12:00:00`;
 
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });

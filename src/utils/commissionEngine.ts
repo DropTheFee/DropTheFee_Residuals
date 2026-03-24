@@ -262,7 +262,22 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           }
         } else if (contract.contract_type === 'venture_apps') {
           for (const merchant of repMerchants) {
-            const tierPct = merchant.venture_source === 'venture' ? 70 : 20;
+            let tierPct = merchant.venture_source === 'venture' ? 70 : 20;
+
+            const { data: tierData } = await supabase
+              .from('commission_tiers')
+              .select('split_percentage')
+              .eq('contract_type', 'venture_apps')
+              .eq('source', merchant.venture_source)
+              .lte('effective_date', periodMonth)
+              .order('effective_date', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (tierData) {
+              tierPct = tierData.split_percentage;
+            }
+
             const payout = calculatePayout(merchant.net_residual, tierPct);
 
             commissionResults.push({

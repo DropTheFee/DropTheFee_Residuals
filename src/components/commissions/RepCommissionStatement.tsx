@@ -350,25 +350,31 @@ export default function RepCommissionStatement({
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">Client/Company</TableHead>
-                  <TableHead className="text-slate-300">Entry Type</TableHead>
-                  <TableHead className="text-right text-slate-300">Revenue</TableHead>
-                  <TableHead className="text-right text-slate-300">Commission</TableHead>
+                  <TableHead className="text-slate-300">Service</TableHead>
+                  <TableHead className="text-right text-slate-300">Income</TableHead>
+                  <TableHead className="text-right text-slate-300">Expenses</TableHead>
+                  <TableHead className="text-right text-slate-300">Net Revenue</TableHead>
+                  <TableHead className="text-right text-slate-300">Commission (50%)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {surjResults.map((result) => (
                   <TableRow key={result.id} className="border-slate-700">
                     <TableCell className="text-white">{result.merchant_name}</TableCell>
-                    <TableCell className="text-slate-300">{result.contract_type === 'surj' ? 'SüRJ' : 'N/A'}</TableCell>
                     <TableCell className="text-right text-slate-300">{formatCurrency(result.gross_residual)}</TableCell>
+                    <TableCell className={`text-right ${result.expenses > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                      {result.expenses > 0 ? formatCurrency(-result.expenses) : '$0.00'}
+                    </TableCell>
+                    <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                      {formatCurrency(result.net_residual)}
+                    </TableCell>
                     <TableCell className="text-right font-medium text-green-400">
                       {formatCurrency(result.rep_payout)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">SüRJ Subtotal</TableCell>
+                  <TableCell colSpan={4} className="text-right font-semibold text-slate-300">SüRJ Subtotal</TableCell>
                   <TableCell className="text-right font-bold text-green-400">
                     {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
                   </TableCell>

@@ -318,39 +318,77 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
     const periodDate = new Date(periodMonth + 'T12:00:00Z');
     const { data: surjEntries } = await supabase
       .from('surj_entries')
-      .select('rep_user_id, merchant_name, entry_type, amount')
+      .select(`
+        rep_user_id,
+        merchant_name,
+        entry_type,
+        amount,
+        surj_service_id,
+        surj_services (
+          id,
+          service_type,
+          surj_clients (
+            company_name
+          )
+        )
+      `)
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth);
 
+    const serviceGroups = new Map<string, {
+      rep_user_id: string;
+      service_name: string;
+      client_name: string;
+      income: number;
+      expenses: number;
+    }>();
+
     for (const entry of surjEntries || []) {
-      let commission = 0;
-      switch (entry.entry_type) {
-        case 'subscription':
-          commission = entry.amount * 0.5;
-          break;
-        case 'setup_full':
-          commission = entry.amount >= 1500 ? entry.amount * 0.15 : 0;
-          break;
-        case 'setup_split':
-          commission = entry.amount * 0.1;
-          break;
+      if (!entry.surj_service_id) continue;
+
+      const serviceKey = entry.surj_service_id;
+
+      if (!serviceGroups.has(serviceKey)) {
+        const serviceName = (entry as any).surj_services?.service_type || 'Unknown Service';
+        const clientName = (entry as any).surj_services?.surj_clients?.company_name || entry.merchant_name;
+
+        serviceGroups.set(serviceKey, {
+          rep_user_id: entry.rep_user_id,
+          service_name: serviceName,
+          client_name: clientName,
+          income: 0,
+          expenses: 0,
+        });
       }
+
+      const group = serviceGroups.get(serviceKey)!;
+
+      if (entry.entry_type === 'expense') {
+        group.expenses += Math.abs(entry.amount);
+      } else {
+        group.income += entry.amount;
+      }
+    }
+
+    for (const [serviceId, group] of serviceGroups.entries()) {
+      const netRevenue = group.income - group.expenses;
+      const commission = netRevenue > 0 ? netRevenue * 0.5 : 0;
 
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: entry.rep_user_id,
+        rep_user_id: group.rep_user_id,
         merchant_id: null,
         contract_type: 'surj',
         source_type: 'surj',
-        merchant_name: entry.merchant_name,
+        merchant_name: `${group.client_name} - ${group.service_name}`,
         processor: null,
         volume: 0,
         monthly_volume: 0,
-        gross_residual: entry.amount,
-        expenses: 0,
-        net_residual: entry.amount,
-        split_pct: 0,
+        gross_residual: group.income,
+        expenses: group.expenses,
+        net_residual: netRevenue,
+        split_pct: 50,
         rep_payout: commission,
         override_from_user_id: null,
       });

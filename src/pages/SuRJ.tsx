@@ -39,6 +39,7 @@ interface Rep {
 interface SurjClient {
   id: string;
   company_name: string;
+  rep_user_id: string;
 }
 
 interface SurjService {
@@ -73,6 +74,9 @@ export default function SuRJ() {
   const [entries, setEntries] = useState<SurjEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [clients, setClients] = useState<SurjClient[]>([]);
+  const [services, setServices] = useState<SurjService[]>([]);
+  const [expenseServices, setExpenseServices] = useState<SurjService[]>([]);
 
   const [selectedPeriod, setSelectedPeriod] = useState(
     format(startOfMonth(new Date()), "yyyy-MM")
@@ -80,14 +84,16 @@ export default function SuRJ() {
 
   const [formData, setFormData] = useState({
     repId: "",
-    merchantName: "",
+    clientId: "",
+    serviceId: "",
     entryType: "",
     amount: "",
   });
 
   const [expenseFormData, setExpenseFormData] = useState({
     repId: "",
-    clientName: "",
+    clientId: "",
+    serviceId: "",
     description: "",
     amount: "",
     recurring: false,
@@ -101,8 +107,39 @@ export default function SuRJ() {
     if (currentUser) {
       fetchReps();
       fetchEntries();
+      fetchClients();
     }
   }, [currentUser, selectedPeriod]);
+
+  useEffect(() => {
+    if (formData.clientId) {
+      fetchServices(formData.clientId);
+    } else {
+      setServices([]);
+      setFormData(prev => ({ ...prev, serviceId: "" }));
+    }
+  }, [formData.clientId]);
+
+  useEffect(() => {
+    if (expenseFormData.clientId) {
+      fetchExpenseServices(expenseFormData.clientId);
+    } else {
+      setExpenseServices([]);
+      setExpenseFormData(prev => ({ ...prev, serviceId: "" }));
+    }
+  }, [expenseFormData.clientId]);
+
+  useEffect(() => {
+    if (formData.serviceId) {
+      autoPopulateRep(formData.clientId, 'entry');
+    }
+  }, [formData.serviceId]);
+
+  useEffect(() => {
+    if (expenseFormData.serviceId) {
+      autoPopulateRep(expenseFormData.clientId, 'expense');
+    }
+  }, [expenseFormData.serviceId]);
 
   const fetchCurrentUser = async () => {
     const {
@@ -142,6 +179,74 @@ export default function SuRJ() {
     }
 
     setReps(data || []);
+  };
+
+  const fetchClients = async () => {
+    const { data, error } = await supabase
+      .from("surj_clients")
+      .select("id, company_name, rep_user_id")
+      .eq("agency_id", "ed9c6a52-c619-4d92-82f2-2b9cb4b35622")
+      .order("company_name");
+
+    if (error) {
+      toast({
+        title: "Error fetching clients",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setClients(data || []);
+  };
+
+  const fetchServices = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("surj_services")
+      .select("id, service_type, surj_client_id")
+      .eq("surj_client_id", clientId)
+      .order("service_type");
+
+    if (error) {
+      toast({
+        title: "Error fetching services",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setServices(data || []);
+  };
+
+  const fetchExpenseServices = async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("surj_services")
+      .select("id, service_type, surj_client_id")
+      .eq("surj_client_id", clientId)
+      .order("service_type");
+
+    if (error) {
+      toast({
+        title: "Error fetching services",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExpenseServices(data || []);
+  };
+
+  const autoPopulateRep = async (clientId: string, formType: 'entry' | 'expense') => {
+    const client = clients.find(c => c.id === clientId);
+    if (client && client.rep_user_id) {
+      if (formType === 'entry') {
+        setFormData(prev => ({ ...prev, repId: client.rep_user_id }));
+      } else {
+        setExpenseFormData(prev => ({ ...prev, repId: client.rep_user_id }));
+      }
+    }
   };
 
   const fetchEntries = async () => {
@@ -257,13 +362,13 @@ export default function SuRJ() {
     if (
       !selectedPeriod ||
       !formData.repId ||
-      !formData.merchantName ||
+      !formData.serviceId ||
       !formData.entryType ||
       !formData.amount
     ) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including service selection",
         variant: "destructive",
       });
       return;
@@ -274,13 +379,16 @@ export default function SuRJ() {
     const [year, month] = selectedPeriod.split('-').map(Number);
     const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
 
+    const selectedClient = clients.find(c => c.id === formData.clientId);
+
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
       rep_user_id: formData.repId,
       period_month: periodMonth,
       entry_type: formData.entryType,
       amount: parseFloat(formData.amount),
-      merchant_name: formData.merchantName,
+      merchant_name: selectedClient?.company_name || "",
+      surj_service_id: formData.serviceId,
       created_by: currentUser.id,
     });
 
@@ -302,7 +410,8 @@ export default function SuRJ() {
 
     setFormData({
       repId: "",
-      merchantName: "",
+      clientId: "",
+      serviceId: "",
       entryType: "",
       amount: "",
     });
@@ -337,13 +446,13 @@ export default function SuRJ() {
     if (
       !selectedPeriod ||
       !expenseFormData.repId ||
-      !expenseFormData.clientName ||
+      !expenseFormData.serviceId ||
       !expenseFormData.description ||
       !expenseFormData.amount
     ) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including service selection",
         variant: "destructive",
       });
       return;
@@ -355,13 +464,16 @@ export default function SuRJ() {
     const periodMonth = `${year}-${String(month).padStart(2, '0')}-01T12:00:00`;
     const expenseAmount = -Math.abs(parseFloat(expenseFormData.amount));
 
+    const selectedClient = clients.find(c => c.id === expenseFormData.clientId);
+
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
       rep_user_id: expenseFormData.repId,
       period_month: periodMonth,
       entry_type: "expense",
       amount: expenseAmount,
-      merchant_name: expenseFormData.clientName,
+      merchant_name: `${selectedClient?.company_name || ""} - ${expenseFormData.description}`,
+      surj_service_id: expenseFormData.serviceId,
       created_by: currentUser.id,
     });
 
@@ -383,7 +495,8 @@ export default function SuRJ() {
 
     setExpenseFormData({
       repId: "",
-      clientName: "",
+      clientId: "",
+      serviceId: "",
       description: "",
       amount: "",
       recurring: false,
@@ -444,6 +557,49 @@ export default function SuRJ() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="client">Client</Label>
+                <Select
+                  value={formData.clientId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, clientId: value })
+                  }
+                >
+                  <SelectTrigger id="client">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="service">Service Type</Label>
+                <Select
+                  value={formData.serviceId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, serviceId: value })
+                  }
+                  disabled={!formData.clientId}
+                >
+                  <SelectTrigger id="service">
+                    <SelectValue placeholder={formData.clientId ? "Select service" : "Select client first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.service_type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="rep">Rep</Label>
                 <Select
                   value={formData.repId}
@@ -452,7 +608,7 @@ export default function SuRJ() {
                   }
                 >
                   <SelectTrigger id="rep">
-                    <SelectValue placeholder="Select rep" />
+                    <SelectValue placeholder="Auto-populated" />
                   </SelectTrigger>
                   <SelectContent>
                     {reps.map((rep) => (
@@ -462,18 +618,6 @@ export default function SuRJ() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="merchantName">Client/Company Name</Label>
-                <Input
-                  id="merchantName"
-                  value={formData.merchantName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, merchantName: e.target.value })
-                  }
-                  placeholder="Enter client name"
-                />
               </div>
 
               <div className="space-y-2">
@@ -549,6 +693,49 @@ export default function SuRJ() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="expenseClient">Client</Label>
+                <Select
+                  value={expenseFormData.clientId}
+                  onValueChange={(value) =>
+                    setExpenseFormData({ ...expenseFormData, clientId: value })
+                  }
+                >
+                  <SelectTrigger id="expenseClient">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="expenseService">Service Type</Label>
+                <Select
+                  value={expenseFormData.serviceId}
+                  onValueChange={(value) =>
+                    setExpenseFormData({ ...expenseFormData, serviceId: value })
+                  }
+                  disabled={!expenseFormData.clientId}
+                >
+                  <SelectTrigger id="expenseService">
+                    <SelectValue placeholder={expenseFormData.clientId ? "Select service" : "Select client first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseServices.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.service_type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="expenseRep">Rep</Label>
                 <Select
                   value={expenseFormData.repId}
@@ -557,7 +744,7 @@ export default function SuRJ() {
                   }
                 >
                   <SelectTrigger id="expenseRep">
-                    <SelectValue placeholder="Select rep" />
+                    <SelectValue placeholder="Auto-populated" />
                   </SelectTrigger>
                   <SelectContent>
                     {reps.map((rep) => (
@@ -567,18 +754,6 @@ export default function SuRJ() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="clientName">Client/Company Name</Label>
-                <Input
-                  id="clientName"
-                  value={expenseFormData.clientName}
-                  onChange={(e) =>
-                    setExpenseFormData({ ...expenseFormData, clientName: e.target.value })
-                  }
-                  placeholder="Must match SüRJ client"
-                />
               </div>
 
               <div className="space-y-2">

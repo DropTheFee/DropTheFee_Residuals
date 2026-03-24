@@ -234,7 +234,7 @@ export default function RepCommissionStatement({
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">Monthly NAB Total</TableCell>
+                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">NAB Bonus Subtotal</TableCell>
                   <TableCell className="text-right font-bold text-green-400">
                     {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
                   </TableCell>
@@ -283,6 +283,12 @@ export default function RepCommissionStatement({
                     </TableCell>
                   </TableRow>
                 ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={7} className="text-right font-semibold text-slate-300">Merchant Commissions Subtotal</TableCell>
+                  <TableCell className={`text-right font-bold ${merchantResults.reduce((sum, r) => sum + r.rep_payout, 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatCurrency(merchantResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </CardContent>
@@ -328,7 +334,7 @@ export default function RepCommissionStatement({
                       </TableRow>
                     ))}
                     <TableRow className="border-slate-700 bg-slate-700/30">
-                      <TableCell colSpan={5} className="text-right font-semibold text-slate-300">Override Subtotal</TableCell>
+                      <TableCell colSpan={5} className="text-right font-semibold text-slate-300">Trainee Overrides Subtotal</TableCell>
                       <TableCell className={`text-right font-bold ${traineeSubtotal < 0 ? 'text-red-400' : 'text-green-400'}`}>
                         {formatCurrency(traineeSubtotal)}
                       </TableCell>

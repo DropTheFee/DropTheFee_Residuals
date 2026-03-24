@@ -36,6 +36,18 @@ interface Rep {
   email: string;
 }
 
+interface SurjClient {
+  id: string;
+  company_name: string;
+}
+
+interface SurjService {
+  id: string;
+  service_type: string;
+  surj_client_id: string;
+  surj_clients?: SurjClient;
+}
+
 interface SurjEntry {
   id: string;
   rep_user_id: string;
@@ -43,6 +55,8 @@ interface SurjEntry {
   entry_type: string;
   amount: number;
   merchant_name: string;
+  surj_service_id?: string;
+  surj_services?: SurjService;
   rep_name?: string;
   commission?: number;
 }
@@ -145,6 +159,16 @@ export default function SuRJ() {
         entry_type,
         amount,
         merchant_name,
+        surj_service_id,
+        surj_services (
+          id,
+          service_type,
+          surj_client_id,
+          surj_clients (
+            id,
+            company_name
+          )
+        ),
         rep:rep_user_id (
           full_name
         )
@@ -666,6 +690,7 @@ export default function SuRJ() {
               <TableRow>
                 <TableHead>Rep Name</TableHead>
                 <TableHead>Client/Company</TableHead>
+                <TableHead>Service Type</TableHead>
                 <TableHead>Entry Type</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Expenses</TableHead>
@@ -678,7 +703,7 @@ export default function SuRJ() {
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground">
                     No entries found for this period
                   </TableCell>
                 </TableRow>
@@ -688,11 +713,15 @@ export default function SuRJ() {
                   return displayEntries.map((entry: any) => {
                     const periodDate = new Date(entry.period_month.replace(/Z$/, '') + (entry.period_month.includes('T') ? '' : 'T12:00:00'));
 
+                    const clientName = entry.surj_services?.surj_clients?.company_name || entry.merchant_name;
+                    const serviceType = entry.surj_services?.service_type || '-';
+
                     if (entry.isExpenseRow) {
                       return (
                         <TableRow key={entry.id} className="bg-red-50 dark:bg-red-950/20">
                           <TableCell>{entry.rep_name}</TableCell>
-                          <TableCell>{entry.merchant_name}</TableCell>
+                          <TableCell>{clientName}</TableCell>
+                          <TableCell>{serviceType}</TableCell>
                           <TableCell className="text-red-600 font-semibold">Expense</TableCell>
                           <TableCell className="text-red-600">-${Math.abs(entry.amount).toFixed(2)}</TableCell>
                           <TableCell>-</TableCell>
@@ -717,7 +746,8 @@ export default function SuRJ() {
                     return (
                       <TableRow key={entry.id}>
                         <TableCell>{entry.rep_name}</TableCell>
-                        <TableCell>{entry.merchant_name}</TableCell>
+                        <TableCell>{clientName}</TableCell>
+                        <TableCell>{serviceType}</TableCell>
                         <TableCell>{getEntryTypeLabel(entry.entry_type)}</TableCell>
                         <TableCell>${entry.amount.toFixed(2)}</TableCell>
                         <TableCell className="text-red-600">

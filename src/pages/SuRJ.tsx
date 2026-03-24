@@ -200,29 +200,23 @@ export default function SuRJ() {
   };
 
   const processEntriesForDisplay = () => {
-    const expensesMap = new Map<string, { total: number; entries: SurjEntry[] }>();
+    const expensesMap = new Map<string, number>();
 
     entries.forEach((entry) => {
-      if (entry.entry_type === 'expense') {
-        const key = `${entry.rep_user_id}-${entry.merchant_name}`;
-        const current = expensesMap.get(key) || { total: 0, entries: [] };
-        current.total += Math.abs(entry.amount);
-        current.entries.push(entry);
-        expensesMap.set(key, current);
+      if (entry.entry_type === 'expense' && entry.surj_service_id) {
+        const current = expensesMap.get(entry.surj_service_id) || 0;
+        expensesMap.set(entry.surj_service_id, current + Math.abs(entry.amount));
       }
     });
 
     const displayEntries: any[] = [];
-    const processedExpenses = new Set<string>();
 
     entries.forEach(entry => {
       if (entry.entry_type === 'expense') {
         return;
       }
 
-      const key = `${entry.rep_user_id}-${entry.merchant_name}`;
-      const expenseData = expensesMap.get(key);
-      const expenseAmount = expenseData?.total || 0;
+      const expenseAmount = entry.surj_service_id ? (expensesMap.get(entry.surj_service_id) || 0) : 0;
       const netRevenue = Math.max(0, entry.amount - expenseAmount);
 
       let commission = 0;
@@ -245,37 +239,7 @@ export default function SuRJ() {
         expenseAmount,
         netRevenue,
         commission,
-        isExpenseRow: false,
       });
-
-      if (expenseData && !processedExpenses.has(key)) {
-        processedExpenses.add(key);
-        expenseData.entries.forEach(expenseEntry => {
-          displayEntries.push({
-            ...expenseEntry,
-            expenseAmount: 0,
-            netRevenue: 0,
-            commission: 0,
-            isExpenseRow: true,
-          });
-        });
-      }
-    });
-
-    entries.forEach(entry => {
-      if (entry.entry_type === 'expense') {
-        const key = `${entry.rep_user_id}-${entry.merchant_name}`;
-        if (!processedExpenses.has(key)) {
-          processedExpenses.add(key);
-          displayEntries.push({
-            ...entry,
-            expenseAmount: 0,
-            netRevenue: 0,
-            commission: 0,
-            isExpenseRow: true,
-          });
-        }
-      }
     });
 
     return displayEntries;
@@ -715,33 +679,6 @@ export default function SuRJ() {
 
                     const clientName = entry.surj_services?.surj_clients?.company_name || entry.merchant_name;
                     const serviceType = entry.surj_services?.service_type || '-';
-
-                    if (entry.isExpenseRow) {
-                      return (
-                        <TableRow key={entry.id} className="bg-red-50 dark:bg-red-950/20">
-                          <TableCell>{entry.rep_name}</TableCell>
-                          <TableCell>{clientName}</TableCell>
-                          <TableCell>{serviceType}</TableCell>
-                          <TableCell className="text-red-600 font-semibold">Expense</TableCell>
-                          <TableCell className="text-red-600">-${Math.abs(entry.amount).toFixed(2)}</TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell>
-                            {format(periodDate, "MMMM yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
 
                     return (
                       <TableRow key={entry.id}>

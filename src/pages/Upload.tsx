@@ -40,6 +40,12 @@ export default function Upload() {
   }, [selectedPeriod]);
 
   const loadAgencyAndPeriods = async () => {
+    // First, check the session
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('=== Upload Page Period Fetch Debug ===');
+    console.log('Session exists:', !!session);
+    console.log('Session user:', session?.user?.id);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.log('No authenticated user found');
@@ -59,6 +65,8 @@ export default function Upload() {
       return;
     }
 
+    console.log('User profile:', profile);
+
     if (profile?.agency_id) {
       setAgencyId(profile.agency_id);
       console.log('User agency_id:', profile.agency_id);
@@ -69,17 +77,32 @@ export default function Upload() {
         .eq('agency_id', profile.agency_id)
         .order('period_month', { ascending: false });
 
-      console.log('Raw periods query result:', periodsData);
-      console.log('Periods query error:', periodsError);
+      console.log('=== PERIODS QUERY RESULT ===');
+      console.log('Error:', periodsError);
+      console.log('Data count:', periodsData?.length);
+      console.log('Full data:', JSON.stringify(periodsData, null, 2));
+
+      if (periodsData) {
+        periodsData.forEach((period, idx) => {
+          console.log(`Period ${idx}:`, {
+            id: period.id,
+            period_month: period.period_month,
+            status: period.status,
+            agency_id: period.agency_id
+          });
+        });
+      }
 
       if (periodsData && periodsData.length > 0) {
         setPeriods(periodsData);
         setSelectedPeriod(periodsData[0].period_month);
         console.log('Set selected period to:', periodsData[0].period_month);
+        console.log('Total periods set in state:', periodsData.length);
       } else {
         console.log('No periods found for agency');
       }
     }
+    console.log('=== END DEBUG ===');
   };
 
   const formatPeriodDisplay = (periodMonth: string) => {

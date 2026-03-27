@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { calculateCommissions } from '@/utils/commissionEngine';
 import { toast } from 'sonner';
 import { Loader as Loader2, Lock, Clock as Unlock, TrendingUp, DollarSign, Download } from 'lucide-react';
-import { exportRepStatementToCSV } from '@/utils/csvExport';
+import { exportRepStatementToHTML } from '@/utils/csvExport';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -395,7 +395,7 @@ export default function Commissions() {
         return;
       }
 
-      const filename = exportRepStatementToCSV(repName, selectedPeriod, results);
+      const filename = exportRepStatementToHTML(repName, selectedPeriod, results);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Error downloading statement:', error);

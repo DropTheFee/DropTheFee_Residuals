@@ -1,4 +1,4 @@
-export const exportRepStatementToCSV = (
+export const exportRepStatementToHTML = (
   repName: string,
   periodMonth: string,
   results: any[]
@@ -8,57 +8,143 @@ export const exportRepStatementToCSV = (
   const year = date.getFullYear();
 
   const sanitizeName = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '_');
-  const filename = `${sanitizeName(repName)}_${month}_${year}_Statement.csv`;
+  const filename = `${sanitizeName(repName)}_${month}_${year}_Statement.html`;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
 
   const merchantResults = results.filter(
-    r => r.source_type === 'merchant' && !r.override_from_user_id
+    r => r.source_type === 'merchant' && !r.override_from_user_id && r.rep_payout !== 0
   );
-
-  const headers = [
-    'Merchant Name',
-    'Processor',
-    'Volume',
-    'Gross Residual',
-    'Expenses',
-    'Net Residual',
-    'Split %',
-    'Rep Payout'
-  ];
-
-  const rows = merchantResults.map(result => [
-    `"${(result.merchant_name || '').replace(/"/g, '""')}"`,
-    `"${(result.processor || '').replace(/"/g, '""')}"`,
-    result.monthly_volume.toFixed(2),
-    result.gross_residual.toFixed(2),
-    result.expenses.toFixed(2),
-    result.net_residual.toFixed(2),
-    result.split_pct.toFixed(2),
-    result.rep_payout.toFixed(2)
-  ]);
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
   const totalGrossResidual = merchantResults.reduce((sum, r) => sum + r.gross_residual, 0);
   const totalExpenses = merchantResults.reduce((sum, r) => sum + r.expenses, 0);
   const totalNetResidual = merchantResults.reduce((sum, r) => sum + r.net_residual, 0);
-  const totalPayout = results.reduce((sum, r) => sum + r.rep_payout, 0);
+  const totalPayout = results
+    .filter(r => r.rep_payout !== 0)
+    .reduce((sum, r) => sum + r.rep_payout, 0);
 
-  rows.push([
-    '"TOTAL"',
-    '""',
-    totalVolume.toFixed(2),
-    totalGrossResidual.toFixed(2),
-    totalExpenses.toFixed(2),
-    totalNetResidual.toFixed(2),
-    '""',
-    totalPayout.toFixed(2)
-  ]);
+  const tableRows = merchantResults.map(result => `
+    <tr>
+      <td>${result.merchant_name || ''}</td>
+      <td>${result.mid || ''}</td>
+      <td>${result.processor || ''}</td>
+      <td style="text-align: right;">${formatCurrency(result.monthly_volume)}</td>
+      <td style="text-align: right;">${result.split_pct.toFixed(2)}%</td>
+      <td style="text-align: right;">${formatCurrency(result.gross_residual)}</td>
+      <td style="text-align: right;">${formatCurrency(result.expenses)}</td>
+      <td style="text-align: right;">${formatCurrency(result.net_residual)}</td>
+      <td style="text-align: right;">${formatCurrency(result.rep_payout)}</td>
+    </tr>
+  `).join('');
 
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.join(','))
-  ].join('\n');
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${repName} - ${month} ${year} Commission Statement</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: #ffffff;
+      color: #000000;
+    }
+    .header {
+      margin-bottom: 40px;
+    }
+    .rep-name {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 0 0 10px 0;
+    }
+    .period {
+      font-size: 18px;
+      color: #333333;
+      margin: 0 0 5px 0;
+    }
+    .agency {
+      font-size: 16px;
+      color: #666666;
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th {
+      background-color: #f8f9fa;
+      padding: 12px 8px;
+      text-align: left;
+      border: 1px solid #dee2e6;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    td {
+      padding: 10px 8px;
+      border: 1px solid #dee2e6;
+      font-size: 14px;
+    }
+    tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+    .totals-row {
+      font-weight: bold;
+      background-color: #e9ecef !important;
+    }
+    .totals-row td {
+      border-top: 2px solid #000000;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="rep-name">${repName}</h1>
+    <p class="period">${month} ${year}</p>
+    <p class="agency">Recherché Merchant Solutions</p>
+  </div>
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  <table>
+    <thead>
+      <tr>
+        <th>Merchant Name</th>
+        <th>MID</th>
+        <th>Processor</th>
+        <th style="text-align: right;">Total Volume</th>
+        <th style="text-align: right;">Split %</th>
+        <th style="text-align: right;">Gross Residual</th>
+        <th style="text-align: right;">Expenses</th>
+        <th style="text-align: right;">Net Residual</th>
+        <th style="text-align: right;">Rep Payout</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+      <tr class="totals-row">
+        <td colspan="3"><strong>TOTALS</strong></td>
+        <td style="text-align: right;">${formatCurrency(totalVolume)}</td>
+        <td style="text-align: right;"></td>
+        <td style="text-align: right;">${formatCurrency(totalGrossResidual)}</td>
+        <td style="text-align: right;">${formatCurrency(totalExpenses)}</td>
+        <td style="text-align: right;">${formatCurrency(totalNetResidual)}</td>
+        <td style="text-align: right;">${formatCurrency(totalPayout)}</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
 

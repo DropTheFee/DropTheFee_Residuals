@@ -295,7 +295,13 @@ export default function Commissions() {
     if (!selectedPeriod || !agencyId) return;
 
     try {
-      const { error } = await supabase
+      console.log('Finalizing period with Supabase client:', {
+        url: import.meta.env.VITE_SUPABASE_URL,
+        period: selectedPeriod,
+        agencyId
+      });
+
+      const { data, error } = await supabase
         .from('commission_periods')
         .upsert({
           agency_id: agencyId,
@@ -304,10 +310,15 @@ export default function Commissions() {
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'agency_id,period_month'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Upsert error details:', error);
+        throw error;
+      }
 
+      console.log('Finalize successful:', data);
       toast.success(`Period ${formatPeriodMonth(selectedPeriod)} has been finalized`);
       setShowFinalizeDialog(false);
       await loadPeriods();
@@ -322,7 +333,7 @@ export default function Commissions() {
     if (!selectedPeriod || !agencyId) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('commission_periods')
         .upsert({
           agency_id: agencyId,
@@ -331,9 +342,13 @@ export default function Commissions() {
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'agency_id,period_month'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Upsert error details:', error);
+        throw error;
+      }
 
       toast.success(`Period ${formatPeriodMonth(selectedPeriod)} has been unlocked`);
       setShowUnlockDialog(false);

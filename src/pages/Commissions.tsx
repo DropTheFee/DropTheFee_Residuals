@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { calculateCommissions } from '@/utils/commissionEngine';
 import { toast } from 'sonner';
-import { Loader as Loader2, Lock, Clock as Unlock, TrendingUp, DollarSign } from 'lucide-react';
+import { Loader as Loader2, Lock, Clock as Unlock, TrendingUp, DollarSign, Download } from 'lucide-react';
+import { exportRepStatementToCSV } from '@/utils/csvExport';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,7 @@ export default function Commissions() {
   const [showRecurringExpensesDialog, setShowRecurringExpensesDialog] = useState(false);
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
   const [agencyId, setAgencyId] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
     loadPeriods();
@@ -67,12 +69,13 @@ export default function Commissions() {
 
       const { data: profile } = await supabase
         .from('users')
-        .select('agency_id')
+        .select('agency_id, role')
         .eq('id', user.id)
         .single();
 
       if (!profile?.agency_id) return;
       setAgencyId(profile.agency_id);
+      setUserRole(profile.role || '');
 
       const { data: existingPeriods, error: periodsError } = await supabase
         .from('commission_periods')
@@ -372,6 +375,34 @@ export default function Commissions() {
     }).format(value);
   };
 
+  const handleDownloadStatement = async (repId: string, repName: string) => {
+    if (!selectedPeriod || !agencyId) return;
+
+    try {
+      const { data: results, error } = await supabase
+        .from('commission_results')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .eq('period_month', selectedPeriod)
+        .eq('rep_user_id', repId)
+        .order('source_type', { ascending: true })
+        .order('merchant_name', { ascending: true });
+
+      if (error) throw error;
+
+      if (!results || results.length === 0) {
+        toast.error('No commission data found for this rep');
+        return;
+      }
+
+      const filename = exportRepStatementToCSV(repName, selectedPeriod, results);
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error('Error downloading statement:', error);
+      toast.error('Failed to download statement');
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
   }
@@ -476,12 +507,28 @@ export default function Commissions() {
               onClick={() => setExpandedRep(expandedRep === rep.rep_id ? null : rep.rep_id)}
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white">{rep.rep_name}</CardTitle>
-                  <div className="text-sm text-slate-400 mt-1">
-                    Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.tier_percentage}% |
-                    Contracts: {rep.contracts.join(', ')}
+                <div className="flex items-center gap-3">
+                  <div>
+                    <CardTitle className="text-white">{rep.rep_name}</CardTitle>
+                    <div className="text-sm text-slate-400 mt-1">
+                      Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.tier_percentage}% |
+                      Contracts: {rep.contracts.join(', ')}
+                    </div>
                   </div>
+                  {userRole.toLowerCase() === 'superadmin' && (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadStatement(rep.rep_id, rep.rep_name);
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="border-cyan-600 text-cyan-600 hover:bg-cyan-600/10"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download Statement
+                    </Button>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-green-400">{formatCurrency(rep.total_payout)}</div>

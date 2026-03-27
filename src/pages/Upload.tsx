@@ -7,33 +7,39 @@ import DejavooSteamTerminals from '@/components/upload/DejavooSteamTerminals';
 import ManualExpenses from '@/components/upload/ManualExpenses';
 import { NABUpload } from '@/components/upload/NABUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const getPreviousMonth = () => {
-  const now = new Date();
-  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return {
-    month: prevMonth.getMonth() + 1,
-    year: prevMonth.getFullYear(),
-  };
-};
+interface CommissionPeriod {
+  period_month: string;
+  status: string;
+}
 
 export default function Upload() {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [steamTerminalsOpen, setSteamTerminalsOpen] = useState(false);
   const [manualExpensesOpen, setManualExpensesOpen] = useState(false);
   const [nabOpen, setNabOpen] = useState(false);
-  const { month: defaultMonth, year: defaultYear } = getPreviousMonth();
-  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
   const [agencyId, setAgencyId] = useState<string>('');
+  const [periods, setPeriods] = useState<CommissionPeriod[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [selectedYear, setSelectedYear] = useState<number>(0);
 
   useEffect(() => {
-    loadAgencyId();
+    loadAgencyAndPeriods();
   }, []);
 
-  const loadAgencyId = async () => {
+  useEffect(() => {
+    if (selectedPeriod) {
+      const date = new Date(selectedPeriod);
+      setSelectedMonth(date.getMonth() + 1);
+      setSelectedYear(date.getFullYear());
+    }
+  }, [selectedPeriod]);
+
+  const loadAgencyAndPeriods = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -45,13 +51,62 @@ export default function Upload() {
 
     if (profile?.agency_id) {
       setAgencyId(profile.agency_id);
+
+      const { data: periodsData } = await supabase
+        .from('commission_periods')
+        .select('period_month, status')
+        .eq('agency_id', profile.agency_id)
+        .order('period_month', { ascending: false });
+
+      if (periodsData && periodsData.length > 0) {
+        setPeriods(periodsData);
+        setSelectedPeriod(periodsData[0].period_month);
+      }
     }
   };
 
-  const selectedPeriod = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+  const formatPeriodDisplay = (periodMonth: string) => {
+    const date = new Date(periodMonth);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  if (!selectedPeriod || selectedMonth === 0) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-400">
+        Loading periods...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">Select Report Period</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-full bg-slate-900 border-slate-700 text-white">
+              <SelectValue placeholder="Select a period" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900 border-slate-700">
+              {periods.map((period) => (
+                <SelectItem
+                  key={period.period_month}
+                  value={period.period_month}
+                  className="text-white hover:bg-slate-800"
+                >
+                  {formatPeriodDisplay(period.period_month)}
+                  {period.status === 'active' && (
+                    <span className="ml-2 text-green-400 text-sm">(Active)</span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
       <PendingMappings />
 
       <UploadStatus selectedMonth={selectedMonth} selectedYear={selectedYear} />

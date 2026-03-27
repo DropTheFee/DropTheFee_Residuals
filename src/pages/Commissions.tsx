@@ -307,7 +307,6 @@ export default function Commissions() {
           agency_id: agencyId,
           period_month: selectedPeriod,
           status: 'finalized',
-          updated_at: new Date().toISOString(),
         }, {
           onConflict: 'agency_id,period_month'
         })
@@ -339,7 +338,6 @@ export default function Commissions() {
           agency_id: agencyId,
           period_month: selectedPeriod,
           status: 'calculated',
-          updated_at: new Date().toISOString(),
         }, {
           onConflict: 'agency_id,period_month'
         })

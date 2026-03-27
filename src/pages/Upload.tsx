@@ -41,26 +41,43 @@ export default function Upload() {
 
   const loadAgencyAndPeriods = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      console.log('No authenticated user found');
+      return;
+    }
 
-    const { data: profile } = await supabase
+    console.log('Authenticated user:', user.id);
+
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('agency_id')
       .eq('id', user.id)
       .maybeSingle();
 
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return;
+    }
+
     if (profile?.agency_id) {
       setAgencyId(profile.agency_id);
+      console.log('User agency_id:', profile.agency_id);
 
-      const { data: periodsData } = await supabase
+      const { data: periodsData, error: periodsError } = await supabase
         .from('commission_periods')
-        .select('period_month, status')
+        .select('*')
         .eq('agency_id', profile.agency_id)
         .order('period_month', { ascending: false });
+
+      console.log('Raw periods query result:', periodsData);
+      console.log('Periods query error:', periodsError);
 
       if (periodsData && periodsData.length > 0) {
         setPeriods(periodsData);
         setSelectedPeriod(periodsData[0].period_month);
+        console.log('Set selected period to:', periodsData[0].period_month);
+      } else {
+        console.log('No periods found for agency');
       }
     }
   };

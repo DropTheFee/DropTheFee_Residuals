@@ -40,69 +40,56 @@ export default function Upload() {
   }, [selectedPeriod]);
 
   const loadAgencyAndPeriods = async () => {
-    // First, check the session
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('=== Upload Page Period Fetch Debug ===');
-    console.log('Session exists:', !!session);
-    console.log('Session user:', session?.user?.id);
-
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.log('No authenticated user found');
-      return;
-    }
+    if (!user) return;
 
-    console.log('Authenticated user:', user.id);
-
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('users')
       .select('agency_id')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profileError) {
-      console.error('Error fetching user profile:', profileError);
+    if (!profile?.agency_id) return;
+
+    setAgencyId(profile.agency_id);
+
+    const { data: existingPeriods, error: periodsError } = await supabase
+      .from('commission_periods')
+      .select('*')
+      .eq('agency_id', profile.agency_id)
+      .order('period_month', { ascending: false });
+
+    if (periodsError) {
+      console.error('Error loading periods:', periodsError);
       return;
     }
 
-    console.log('User profile:', profile);
+    const allPeriods = existingPeriods || [];
 
-    if (profile?.agency_id) {
-      setAgencyId(profile.agency_id);
-      console.log('User agency_id:', profile.agency_id);
-
-      const { data: periodsData, error: periodsError } = await supabase
-        .from('commission_periods')
-        .select('*')
-        .eq('agency_id', profile.agency_id)
-        .order('period_month', { ascending: false });
-
-      console.log('=== PERIODS QUERY RESULT ===');
-      console.log('Error:', periodsError);
-      console.log('Data count:', periodsData?.length);
-      console.log('Full data:', JSON.stringify(periodsData, null, 2));
-
-      if (periodsData) {
-        periodsData.forEach((period, idx) => {
-          console.log(`Period ${idx}:`, {
-            id: period.id,
-            period_month: period.period_month,
-            status: period.status,
-            agency_id: period.agency_id
-          });
+    const currentDate = new Date();
+    const lastSixMonths = [];
+    for (let i = 0; i < 6; i++) {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() - i;
+      const d = new Date(year, month, 1);
+      const periodMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+      if (!allPeriods.find(p => p.period_month === periodMonth)) {
+        lastSixMonths.push({
+          id: periodMonth,
+          period_month: periodMonth,
+          status: 'open',
         });
       }
-
-      if (periodsData && periodsData.length > 0) {
-        setPeriods(periodsData);
-        setSelectedPeriod(periodsData[0].period_month);
-        console.log('Set selected period to:', periodsData[0].period_month);
-        console.log('Total periods set in state:', periodsData.length);
-      } else {
-        console.log('No periods found for agency');
-      }
     }
-    console.log('=== END DEBUG ===');
+
+    const combinedPeriods = [...allPeriods, ...lastSixMonths].sort((a, b) =>
+      b.period_month.localeCompare(a.period_month)
+    );
+
+    setPeriods(combinedPeriods);
+    if (combinedPeriods.length > 0 && !selectedPeriod) {
+      setSelectedPeriod(combinedPeriods[0].period_month);
+    }
   };
 
   const formatPeriodDisplay = (periodMonth: string) => {

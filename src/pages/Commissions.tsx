@@ -381,7 +381,10 @@ export default function Commissions() {
     try {
       const { data: results, error } = await supabase
         .from('commission_results')
-        .select('*')
+        .select(`
+          *,
+          merchants!commission_results_merchant_id_fkey(merchant_id)
+        `)
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
         .eq('rep_user_id', repId)
@@ -395,7 +398,12 @@ export default function Commissions() {
         return;
       }
 
-      const filename = exportRepStatementToHTML(repName, selectedPeriod, results);
+      const resultsWithMID = results.map((r: any) => ({
+        ...r,
+        mid: r.merchants?.merchant_id || ''
+      }));
+
+      const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Error downloading statement:', error);

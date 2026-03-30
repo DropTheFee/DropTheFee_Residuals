@@ -138,10 +138,12 @@ export default function Commissions() {
         const summary = repMap.get(repId)!;
 
         if (result.source_type === 'merchant' && !result.override_from_rep_user_id) {
-          summary.total_volume = result.volume;
-          summary.total_net_residual += result.net_residual;
-          summary.split_pct = result.split_pct;
-        }
+  summary.total_volume = result.volume;
+  summary.total_net_residual += result.net_residual;
+  summary.split_pct = result.split_pct;
+} else if (result.source_type === 'manual' && result.volume > 0) {
+  summary.total_volume += result.monthly_volume;
+}
 
         if (result.source_type === 'merchant') {
           if (!summary.contracts.includes(result.contract_type)) {
@@ -150,11 +152,14 @@ export default function Commissions() {
         }
 
         if (result.source_type === 'manual') {
-          summary.total_payout += result.gross_residual;
-        } else {
-          summary.total_payout += result.rep_payout;
-        }
-      }
+  summary.total_payout += result.gross_residual;
+  summary.total_net_residual += result.gross_residual;
+  if (!summary.contracts.includes(result.contract_type)) {
+    summary.contracts.push(result.contract_type);
+  }
+} else {
+  summary.total_payout += result.rep_payout;
+}
 
       setRepSummaries(Array.from(repMap.values()));
 

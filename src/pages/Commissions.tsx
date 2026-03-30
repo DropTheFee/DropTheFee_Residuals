@@ -361,7 +361,7 @@ export default function Commissions() {
         .from('commission_results')
         .select(`
           *,
-          merchants!commission_results_merchant_id_fkey(mid)
+          merchants!commission_results_merchant_id_fkey(merchant_id)
         `)
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
@@ -378,10 +378,10 @@ export default function Commissions() {
 
       const resultsWithMID = results.map((r: any) => ({
         ...r,
-        mid: r.merchants?.mid || ''
+        mid: r.merchants?.merchant_id || ''
       }));
 
-      const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
+      const filename = await exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Error downloading statement:', error);

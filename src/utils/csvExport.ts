@@ -1,4 +1,20 @@
-export const exportRepStatementToHTML = (
+const getLogoBase64 = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://mgx-backend-cdn.metadl.com/generate/images/770325/2026-01-26/7cffe5ff-62e8-41d1-92d2-8e125cff7f5f.png');
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error loading logo:', error);
+    return '';
+  }
+};
+
+export const exportRepStatementToHTML = async (
   repName: string,
   periodMonth: string,
   results: any[]
@@ -9,6 +25,8 @@ export const exportRepStatementToHTML = (
 
   const sanitizeName = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `${sanitizeName(repName)}_${month}_${year}_Statement.html`;
+
+  const logoBase64 = await getLogoBase64();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -130,7 +148,7 @@ export const exportRepStatementToHTML = (
       <p class="period">${month} ${year}</p>
       <p class="agency">Recherché Merchant Solutions</p>
     </div>
-    <img src="https://mgx-backend-cdn.metadl.com/generate/images/770325/2026-01-26/7cffe5ff-62e8-41d1-92d2-8e125cff7f5f.png" alt="DropTheFee" class="header-logo" />
+    ${logoBase64 ? `<img src="${logoBase64}" alt="DropTheFee" class="header-logo" />` : ''}
   </div>
 
   <table>
@@ -177,3 +195,5 @@ export const exportRepStatementToHTML = (
 
   return filename;
 };
+
+export default exportRepStatementToHTML;

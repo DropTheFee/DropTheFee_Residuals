@@ -53,7 +53,7 @@ export default function Upload() {
 
     setAgencyId(profile.agency_id);
 
-    const { data: existingPeriods, error: periodsError } = await supabase
+    const { data: periods, error: periodsError } = await supabase
       .from('commission_periods')
       .select('*')
       .eq('agency_id', profile.agency_id)
@@ -64,31 +64,9 @@ export default function Upload() {
       return;
     }
 
-    const allPeriods = existingPeriods || [];
-
-    const currentDate = new Date();
-    const lastSixMonths = [];
-    for (let i = 0; i < 6; i++) {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() - i;
-      const d = new Date(year, month, 1);
-      const periodMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-      if (!allPeriods.find(p => p.period_month === periodMonth)) {
-        lastSixMonths.push({
-          id: periodMonth,
-          period_month: periodMonth,
-          status: 'open',
-        });
-      }
-    }
-
-    const combinedPeriods = [...allPeriods, ...lastSixMonths].sort((a, b) =>
-      b.period_month.localeCompare(a.period_month)
-    );
-
-    setPeriods(combinedPeriods);
-    if (combinedPeriods.length > 0 && !selectedPeriod) {
-      setSelectedPeriod(combinedPeriods[0].period_month);
+    setPeriods(periods || []);
+    if (periods && periods.length > 0 && !selectedPeriod) {
+      setSelectedPeriod(periods[0].period_month);
     }
   };
 

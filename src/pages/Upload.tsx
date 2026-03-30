@@ -64,10 +64,16 @@ export default function Upload() {
       return;
     }
 
+    console.log('Upload page - Raw periods from DB:', periods);
+    console.log('Upload page - Agency ID:', profile.agency_id);
+    console.log('Upload page - Periods count:', periods?.length);
+
     setPeriods(periods || []);
     if (periods && periods.length > 0 && !selectedPeriod) {
       setSelectedPeriod(periods[0].period_month);
     }
+
+    console.log('Upload page - State set to periods:', periods);
   };
 
   const formatPeriodDisplay = (periodMonth: string) => {
@@ -95,18 +101,22 @@ export default function Upload() {
               <SelectValue placeholder="Select a period" />
             </SelectTrigger>
             <SelectContent className="bg-slate-900 border-slate-700">
-              {periods.map((period) => (
-                <SelectItem
-                  key={period.period_month}
-                  value={period.period_month}
-                  className="text-white hover:bg-slate-800"
-                >
-                  {formatPeriodDisplay(period.period_month)}
-                  {period.status === 'active' && (
-                    <span className="ml-2 text-green-400 text-sm">(Active)</span>
-                  )}
-                </SelectItem>
-              ))}
+              {console.log('Upload page - Rendering dropdown with periods:', periods)}
+              {periods.map((period) => {
+                console.log('Upload page - Rendering period option:', period.period_month, period.status);
+                return (
+                  <SelectItem
+                    key={period.period_month}
+                    value={period.period_month}
+                    className="text-white hover:bg-slate-800"
+                  >
+                    {formatPeriodDisplay(period.period_month)}
+                    {period.status === 'active' && (
+                      <span className="ml-2 text-green-400 text-sm">(Active)</span>
+                    )}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </CardContent>

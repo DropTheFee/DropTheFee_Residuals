@@ -132,6 +132,10 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
     const merchantCommissionData: MerchantCommissionData[] = [];
 
     const historyMonth = periodMonth.substring(0, 7);
+    console.log('Period month passed to engine:', periodMonth);
+    console.log('History month substring:', historyMonth);
+    console.log('Total merchants found:', merchants?.length);
+    console.log('Sample merchant history dates:', merchants?.[0]?.merchant_history?.map((h: any) => h.report_date));
 
     for (const merchant of merchants || []) {
       if (!merchant.sales_rep_id) continue;

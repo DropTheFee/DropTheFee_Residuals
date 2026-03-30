@@ -180,7 +180,8 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .from('commission_results')
       .delete()
       .eq('agency_id', agencyId)
-      .eq('period_month', periodMonth);
+      .eq('period_month', periodMonth)
+      .neq('source_type', 'manual');
 
     const commissionResults: any[] = [];
 

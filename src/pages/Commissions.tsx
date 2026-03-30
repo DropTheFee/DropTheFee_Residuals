@@ -361,7 +361,7 @@ export default function Commissions() {
         .from('commission_results')
         .select(`
           *,
-          merchants!commission_results_merchant_id_fkey(merchant_id)
+          merchants!commission_results_merchant_id_fkey(mid)
         `)
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
@@ -378,7 +378,7 @@ export default function Commissions() {
 
       const resultsWithMID = results.map((r: any) => ({
         ...r,
-        mid: r.merchants?.merchant_id || ''
+        mid: r.merchants?.mid || ''
       }));
 
       const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);

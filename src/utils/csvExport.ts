@@ -61,6 +61,16 @@ export const exportRepStatementToHTML = (
     }
     .header {
       margin-bottom: 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .header-left {
+      flex: 1;
+    }
+    .header-logo {
+      height: 60px;
+      margin-left: 20px;
     }
     .rep-name {
       font-size: 32px;
@@ -105,13 +115,22 @@ export const exportRepStatementToHTML = (
     .totals-row td {
       border-top: 2px solid #000000;
     }
+    @media print {
+      @page {
+        orientation: landscape;
+        size: landscape;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1 class="rep-name">${repName}</h1>
-    <p class="period">${month} ${year}</p>
-    <p class="agency">Recherché Merchant Solutions</p>
+    <div class="header-left">
+      <h1 class="rep-name">${repName}</h1>
+      <p class="period">${month} ${year}</p>
+      <p class="agency">Recherché Merchant Solutions</p>
+    </div>
+    <img src="https://mgx-backend-cdn.metadl.com/generate/images/770325/2026-01-26/7cffe5ff-62e8-41d1-92d2-8e125cff7f5f.png" alt="DropTheFee" class="header-logo" />
   </div>
 
   <table>

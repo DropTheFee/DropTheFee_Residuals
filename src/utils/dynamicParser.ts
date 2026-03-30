@@ -47,6 +47,16 @@ export const parseFileWithMapping = async (
         return;
       }
 
+      const merchantNameLower = merchantName.toLowerCase();
+      if (merchantNameLower === 'total' || merchantNameLower.includes('total') || merchantNameLower === '') {
+        return;
+      }
+
+      const midNum = parseFloat(mid.replace(/[^0-9.-]/g, ''));
+      if (isNaN(midNum)) {
+        return;
+      }
+
       const volume = parseNumber(volumeStr);
       const residual = parseNumber(residualStr);
       const repPayout = repPayoutStr ? parseNumber(repPayoutStr) : undefined;

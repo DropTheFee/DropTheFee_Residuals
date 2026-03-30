@@ -54,6 +54,12 @@ export default function ExpenseUpload({
     loadMerchants();
   }, []);
 
+  useEffect(() => {
+    if (selectedMonth && selectedYear) {
+      checkForPendingMappings();
+    }
+  }, [selectedMonth, selectedYear]);
+
   async function loadMerchants() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -97,6 +103,9 @@ export default function ExpenseUpload({
       const agencyId = userData.agency_id;
       setCurrentAgencyId(agencyId);
 
+      const month = String(selectedMonth).padStart(2, '0');
+      const reportDate = `${selectedYear}-${month}-01`;
+
       const { data } = await supabase
         .from('merchant_expenses')
         .select('*')
@@ -109,7 +118,8 @@ export default function ExpenseUpload({
         const { data: allExpenses } = await supabase
           .from('merchant_expenses')
           .select('expense_amount, matched, skipped')
-          .eq('agency_id', agencyId);
+          .eq('agency_id', agencyId)
+          .eq('report_date', reportDate);
 
         const totalRecords = allExpenses?.length || 0;
         const totalAmount = allExpenses?.reduce((sum, e) => sum + Number(e.expense_amount), 0) || 0;

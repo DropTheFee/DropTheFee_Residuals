@@ -149,7 +149,11 @@ export default function Commissions() {
           }
         }
 
-        summary.total_payout += result.rep_payout;
+        if (result.source_type === 'manual') {
+          summary.total_payout += result.gross_residual;
+        } else {
+          summary.total_payout += result.rep_payout;
+        }
       }
 
       setRepSummaries(Array.from(repMap.values()));

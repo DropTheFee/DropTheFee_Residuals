@@ -132,10 +132,16 @@ export default function RepCommissionStatement({
   const surjResults = results.filter(r => r.source_type === 'surj');
   const nabResults = results.filter(r => r.source_type === 'nab');
   const expenseResults = results.filter(r => r.source_type === 'expense' && r.contract_type === 'expense');
+  const manualResults = results.filter(r => r.source_type === 'manual');
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
   const tierPercentage = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
-  const totalPayout = results.reduce((sum, r) => sum + r.rep_payout, 0);
+  const totalPayout = results.reduce((sum, r) => {
+    if (r.source_type === 'manual') {
+      return sum + r.gross_residual;
+    }
+    return sum + r.rep_payout;
+  }, 0);
 
   if (loading) {
     return <div className="text-center py-8 text-slate-400">Loading...</div>;
@@ -417,6 +423,40 @@ export default function RepCommissionStatement({
                   <TableCell className="text-right font-semibold text-slate-300">Total Deductions</TableCell>
                   <TableCell className="text-right font-bold text-red-400">
                     {formatCurrency(expenseResults.reduce((sum, r) => sum + r.expenses, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {manualResults.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Manual Adjustments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Description</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {manualResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className={`text-right font-medium ${result.gross_residual < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {formatCurrency(result.gross_residual)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell className="text-right font-semibold text-slate-300">Manual Adjustments Subtotal</TableCell>
+                  <TableCell className={`text-right font-bold ${manualResults.reduce((sum, r) => sum + r.gross_residual, 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatCurrency(manualResults.reduce((sum, r) => sum + r.gross_residual, 0))}
                   </TableCell>
                 </TableRow>
               </TableBody>

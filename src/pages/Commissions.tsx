@@ -185,9 +185,8 @@ export default function Commissions() {
         .from('expenses')
         .select('rep_user_id, description, amount')
         .eq('agency_id', agencyId)
-        .eq('period_month', currentPeriodDate.toISOString())
-        .eq('expense_type', 'manual')
-        .eq('status', 'active');
+        .eq('period_month', currentPeriodDate.toISOString().substring(0, 10))
+        .eq('expense_type', 'manual');
 
       const currentExpenseKeys = new Set(
         (currentExpenses || []).map((e: any) => `${e.rep_user_id}-${e.description}`)
@@ -197,10 +196,9 @@ export default function Commissions() {
         .from('expenses')
         .select('id, rep_user_id, description, amount, users!expenses_rep_user_id_fkey(full_name)')
         .eq('agency_id', agencyId)
-        .eq('period_month', previousPeriod)
+        .eq('period_month', previousPeriod.substring(0, 10))
         .eq('expense_type', 'manual')
-        .eq('recurring', true)
-        .eq('status', 'active');
+        .eq('recurring', true);
 
       const unappliedExpenses = (previousRecurringExpenses || []).filter((e: any) => {
         const key = `${e.rep_user_id}-${e.description}`;

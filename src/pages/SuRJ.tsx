@@ -39,7 +39,7 @@ interface Rep {
 interface SurjClient {
   id: string;
   company_name: string;
-  user_id: string;
+  rep_user_id: string;
 }
 
 interface SurjService {
@@ -51,7 +51,7 @@ interface SurjService {
 
 interface SurjEntry {
   id: string;
-  user_id: string;
+  rep_user_id: string;
   period_month: string;
   entry_type: string;
   amount: number;
@@ -184,7 +184,7 @@ export default function SuRJ() {
   const fetchClients = async () => {
     const { data, error } = await supabase
       .from("surj_clients")
-      .select("id, company_name, user_id")
+      .select("id, company_name, rep_user_id")
       .eq("agency_id", "ed9c6a52-c619-4d92-82f2-2b9cb4b35622")
       .order("company_name");
 
@@ -240,11 +240,11 @@ export default function SuRJ() {
 
   const autoPopulateRep = async (clientId: string, formType: 'entry' | 'expense') => {
     const client = clients.find(c => c.id === clientId);
-    if (client && client.user_id) {
+    if (client && client.rep_user_id) {
       if (formType === 'entry') {
-        setFormData(prev => ({ ...prev, repId: client.user_id }));
+        setFormData(prev => ({ ...prev, repId: client.rep_user_id }));
       } else {
-        setExpenseFormData(prev => ({ ...prev, repId: client.user_id }));
+        setExpenseFormData(prev => ({ ...prev, repId: client.rep_user_id }));
       }
     }
   };
@@ -259,7 +259,7 @@ export default function SuRJ() {
       .select(
         `
         id,
-        user_id,
+        rep_user_id,
         period_month,
         entry_type,
         amount,
@@ -274,7 +274,7 @@ export default function SuRJ() {
             company_name
           )
         ),
-        rep:user_id (
+        rep:rep_user_id (
           full_name
         )
       `
@@ -383,7 +383,7 @@ export default function SuRJ() {
 
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
-      user_id: formData.repId,
+      rep_user_id: formData.repId,
       period_month: periodMonth,
       entry_type: formData.entryType,
       amount: parseFloat(formData.amount),
@@ -468,7 +468,7 @@ export default function SuRJ() {
 
     const { error } = await supabase.from("surj_entries").insert({
       agency_id: currentUser.agency_id,
-      user_id: expenseFormData.repId,
+      rep_user_id: expenseFormData.repId,
       period_month: periodMonth,
       entry_type: "expense",
       amount: expenseAmount,

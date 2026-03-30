@@ -38,7 +38,7 @@ export const exportRepStatementToHTML = async (
   };
 
   const merchantResults = results.filter(
-    r => r.source_type === 'merchant' && !r.override_from_user_id && r.payout_amount !== 0
+    r => r.source_type === 'merchant' && !r.override_from_user_id && r.rep_payout !== 0
   );
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
@@ -46,8 +46,8 @@ export const exportRepStatementToHTML = async (
   const totalExpenses = merchantResults.reduce((sum, r) => sum + r.expenses, 0);
   const totalNetResidual = merchantResults.reduce((sum, r) => sum + r.net_residual, 0);
   const totalPayout = results
-    .filter(r => r.payout_amount !== 0)
-    .reduce((sum, r) => sum + r.payout_amount, 0);
+    .filter(r => r.rep_payout !== 0)
+    .reduce((sum, r) => sum + r.rep_payout, 0);
 
   const tableRows = merchantResults.map(result => `
     <tr>
@@ -55,11 +55,11 @@ export const exportRepStatementToHTML = async (
       <td>${result.mid || ''}</td>
       <td>${result.processor || ''}</td>
       <td style="text-align: right;">${formatCurrency(result.monthly_volume)}</td>
-      <td style="text-align: right;">${result.tier_percentage.toFixed(2)}%</td>
+      <td style="text-align: right;">${result.split_pct.toFixed(2)}%</td>
       <td style="text-align: right;">${formatCurrency(result.gross_residual)}</td>
       <td style="text-align: right;">${formatCurrency(result.expenses)}</td>
       <td style="text-align: right;">${formatCurrency(result.net_residual)}</td>
-      <td style="text-align: right;">${formatCurrency(result.payout_amount)}</td>
+      <td style="text-align: right;">${formatCurrency(result.rep_payout)}</td>
     </tr>
   `).join('');
 

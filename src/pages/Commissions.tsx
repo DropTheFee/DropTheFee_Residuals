@@ -30,7 +30,7 @@ interface RepSummary {
   rep_id: string;
   rep_name: string;
   total_volume: number;
-  tier_percentage: number;
+  split_pct: number;
   total_net_residual: number;
   total_payout: number;
   contracts: string[];
@@ -111,7 +111,7 @@ export default function Commissions() {
 
       if (error) throw error;
 
-      const repIds = [...new Set(results?.map(r => r.user_id) || [])];
+      const repIds = [...new Set(results?.map(r => r.rep_user_id) || [])];
       const { data: repUsers } = await supabase
         .from('users')
         .select('id, full_name')
@@ -120,7 +120,7 @@ export default function Commissions() {
       const repMap = new Map<string, RepSummary>();
 
       for (const result of results || []) {
-        const repId = result.user_id;
+        const repId = result.rep_user_id;
         const repName = repUsers?.find(u => u.id === repId)?.full_name || 'Unknown';
 
         if (!repMap.has(repId)) {
@@ -128,7 +128,7 @@ export default function Commissions() {
             rep_id: repId,
             rep_name: repName,
             total_volume: 0,
-            tier_percentage: 0,
+            split_pct: 0,
             total_net_residual: 0,
             total_payout: 0,
             contracts: [],
@@ -137,10 +137,10 @@ export default function Commissions() {
 
         const summary = repMap.get(repId)!;
 
-        if (result.source_type === 'merchant' && !result.override_from_user_id) {
+        if (result.source_type === 'merchant' && !result.override_from_rep_user_id) {
           summary.total_volume = result.volume;
           summary.total_net_residual += result.net_residual;
-          summary.tier_percentage = result.tier_percentage;
+          summary.split_pct = result.split_pct;
         }
 
         if (result.source_type === 'merchant') {
@@ -149,7 +149,7 @@ export default function Commissions() {
           }
         }
 
-        summary.total_payout += result.payout_amount;
+        summary.total_payout += result.rep_payout;
       }
 
       setRepSummaries(Array.from(repMap.values()));
@@ -173,19 +173,19 @@ export default function Commissions() {
 
       const { data: currentExpenses } = await supabase
         .from('expenses')
-        .select('user_id, description, amount')
+        .select('rep_user_id, description, amount')
         .eq('agency_id', agencyId)
         .eq('period_month', currentPeriodDate.toISOString())
         .eq('expense_type', 'manual')
         .eq('status', 'active');
 
       const currentExpenseKeys = new Set(
-        (currentExpenses || []).map((e: any) => `${e.user_id}-${e.description}`)
+        (currentExpenses || []).map((e: any) => `${e.rep_user_id}-${e.description}`)
       );
 
       const { data: previousRecurringExpenses } = await supabase
         .from('expenses')
-        .select('id, user_id, description, amount, users!expenses_user_id_fkey(full_name)')
+        .select('id, rep_user_id, description, amount, users!expenses_rep_user_id_fkey(full_name)')
         .eq('agency_id', agencyId)
         .eq('period_month', previousPeriod)
         .eq('expense_type', 'manual')
@@ -193,7 +193,7 @@ export default function Commissions() {
         .eq('status', 'active');
 
       const unappliedExpenses = (previousRecurringExpenses || []).filter((e: any) => {
-        const key = `${e.user_id}-${e.description}`;
+        const key = `${e.rep_user_id}-${e.description}`;
         return !currentExpenseKeys.has(key);
       });
 
@@ -220,7 +220,7 @@ export default function Commissions() {
 
       const newExpenses = recurringExpenses.map((e: any) => ({
         agency_id: agencyId,
-        user_id: e.user_id,
+        rep_user_id: e.rep_user_id,
         expense_type: 'manual',
         amount: e.amount,
         description: e.description,
@@ -365,7 +365,7 @@ export default function Commissions() {
         `)
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
-        .eq('user_id', repId)
+        .eq('rep_user_id', repId)
         .order('source_type', { ascending: true })
         .order('merchant_name', { ascending: true });
 
@@ -497,7 +497,7 @@ export default function Commissions() {
                   <div>
                     <CardTitle className="text-white">{rep.rep_name}</CardTitle>
                     <div className="text-sm text-slate-400 mt-1">
-                      Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.tier_percentage}% |
+                      Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.split_pct}% |
                       Contracts: {rep.contracts.join(', ')}
                     </div>
                   </div>

@@ -197,7 +197,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
     const commissionResults: any[] = [];
 
     for (const [repId, repMerchants] of repMerchantMap.entries()) {
-      const contracts = repContracts?.filter(c => c.rep_user_id === repId) || [];
+      const contracts = repContracts?.filter(c => c.user_id === repId) || [];
       const totalVolume = repMerchants.reduce((sum, m) => sum + m.monthly_volume, 0);
 
       for (const contract of contracts) {
@@ -212,7 +212,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               period_month: periodMonth,
               rep_user_id: repId,
               merchant_id: merchant.id,
-              mid: merchant.mid,
               contract_type: 'sr_sae',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
@@ -224,7 +223,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               net_residual: merchant.net_residual,
               split_pct: tierPct,
               rep_payout: payout,
-              override_from_rep_user_id: null,
+              override_from_user_id: null,
             });
           }
         } else if (contract.contract_type === 'jr_ae') {
@@ -238,7 +237,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               period_month: periodMonth,
               rep_user_id: repId,
               merchant_id: merchant.id,
-              mid: merchant.mid,
               contract_type: 'jr_ae',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
@@ -250,7 +248,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               net_residual: merchant.net_residual,
               split_pct: tierPct,
               rep_payout: payout,
-              override_from_rep_user_id: null,
+              override_from_user_id: null,
             });
           }
         } else if (contract.contract_type === 'katlyn_flat') {
@@ -262,7 +260,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               period_month: periodMonth,
               rep_user_id: repId,
               merchant_id: merchant.id,
-              mid: merchant.mid,
               contract_type: 'katlyn_flat',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
@@ -274,7 +271,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               net_residual: merchant.net_residual,
               split_pct: 50,
               rep_payout: payout,
-              override_from_rep_user_id: null,
+              override_from_user_id: null,
             });
           }
         } else if (contract.contract_type === 'venture_apps') {
@@ -302,7 +299,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               period_month: periodMonth,
               rep_user_id: repId,
               merchant_id: merchant.id,
-              mid: merchant.mid,
               contract_type: 'venture_apps',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
@@ -314,11 +310,11 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               net_residual: merchant.net_residual,
               split_pct: tierPct,
               rep_payout: payout,
-              override_from_rep_user_id: null,
+              override_from_user_id: null,
             });
           }
-        } else if (contract.contract_type === 'sae_override' && contract.override_target_rep_user_id) {
-          const jrAeMerchants = repMerchantMap.get(contract.override_target_rep_user_id) || [];
+        } else if (contract.contract_type === 'sae_override' && contract.override_target_user_id) {
+          const jrAeMerchants = repMerchantMap.get(contract.override_target_user_id) || [];
           const jrAeTotalVolume = jrAeMerchants.reduce((sum, m) => sum + m.monthly_volume, 0);
           const overridePct = getOverrideTierPercentage(jrAeTotalVolume, SAE_OVERRIDE_TIERS);
 
@@ -330,7 +326,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               period_month: periodMonth,
               rep_user_id: repId,
               merchant_id: merchant.merchant_id,
-              mid: merchant.mid,
               contract_type: 'sae_override',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
@@ -342,7 +337,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               net_residual: merchant.net_residual,
               split_pct: overridePct,
               rep_payout: payout,
-              override_from_rep_user_id: contract.override_target_rep_user_id,
+              override_from_user_id: contract.override_target_user_id,
             });
           }
         }
@@ -413,7 +408,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         period_month: periodMonth,
         rep_user_id: group.rep_user_id,
         merchant_id: null,
-        mid: null,
         contract_type: 'surj',
         source_type: 'surj',
         merchant_name: `${group.client_name} - ${group.service_name}`,
@@ -425,7 +419,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         net_residual: netRevenue,
         split_pct: 50,
         rep_payout: commission,
-        override_from_rep_user_id: null,
+        override_from_user_id: null,
       });
     }
 
@@ -447,7 +441,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         period_month: periodMonth,
         rep_user_id: repId,
         merchant_id: null,
-        mid: null,
         contract_type: 'nab',
         source_type: 'nab',
         merchant_name: 'EPI New Account Bonus',
@@ -459,7 +452,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         net_residual: 0,
         split_pct: 0,
         rep_payout: totalAmount,
-        override_from_rep_user_id: null,
+        override_from_user_id: null,
       });
     }
 
@@ -476,7 +469,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         period_month: periodMonth,
         rep_user_id: expense.rep_user_id,
         merchant_id: null,
-        mid: null,
         contract_type: 'expense',
         source_type: 'expense',
         merchant_name: expense.description,
@@ -488,7 +480,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         net_residual: -expense.amount,
         split_pct: 0,
         rep_payout: -expense.amount,
-        override_from_rep_user_id: null,
+        override_from_user_id: null,
       });
     }
 
@@ -503,7 +495,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       }
     }
 
-    const jordanId = repContracts?.find(c => c.contract_type === 'sae_override')?.rep_user_id;
+    const jordanId = repContracts?.find(c => c.contract_type === 'sae_override')?.user_id;
 
     for (const [repId, total] of repTotals.entries()) {
       const contractType = repContractsMap.get(repId);
@@ -513,7 +505,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           period_month: periodMonth,
           rep_user_id: jordanId,
           merchant_id: null,
-          mid: null,
           contract_type: 'jr_ae',
           source_type: 'expense',
           merchant_name: `Jr AE Negative Balance Rollup`,
@@ -525,7 +516,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           net_residual: total,
           split_pct: 0,
           rep_payout: total,
-          override_from_rep_user_id: repId,
+          override_from_user_id: repId,
         });
       }
     }

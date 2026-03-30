@@ -131,13 +131,7 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
 
     const merchantCommissionData: MerchantCommissionData[] = [];
 
-    const historyDate = new Date(periodMonth + 'T12:00:00');
-    historyDate.setMonth(historyDate.getMonth() - 1);
-    const historyMonth = historyDate.toISOString().substring(0, 7);
-    console.log('Period month passed to engine:', periodMonth);
-    console.log('History month substring:', historyMonth);
-    console.log('Total merchants found:', merchants?.length);
-    console.log('Sample merchant history dates:', merchants?.[0]?.merchant_history?.map((h: any) => h.report_date));
+    const historyMonth = periodMonth.substring(0, 7);
 
     for (const merchant of merchants || []) {
       if (!merchant.sales_rep_id) continue;
@@ -199,8 +193,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .select('id, source_type')
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth);
-
-    console.log('Rows remaining after delete:', remainingManual?.length, remainingManual?.map(r => r.source_type));
 
     const commissionResults: any[] = [];
 
@@ -536,11 +528,6 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
           override_from_rep_user_id: repId,
         });
       }
-    }
-
-    console.log('Inserting rows:', commissionResults.length);
-    if (commissionResults.length > 0) {
-      console.log('Sample row:', JSON.stringify(commissionResults[0], null, 2));
     }
 
     if (commissionResults.length > 0) {

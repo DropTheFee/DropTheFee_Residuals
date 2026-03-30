@@ -131,7 +131,9 @@ export async function calculateCommissions(periodMonth: string, agencyId: string
 
     const merchantCommissionData: MerchantCommissionData[] = [];
 
-    const historyMonth = periodMonth.substring(0, 7);
+    const historyDate = new Date(periodMonth + 'T12:00:00');
+    historyDate.setMonth(historyDate.getMonth() - 1);
+    const historyMonth = historyDate.toISOString().substring(0, 7);
     console.log('Period month passed to engine:', periodMonth);
     console.log('History month substring:', historyMonth);
     console.log('Total merchants found:', merchants?.length);

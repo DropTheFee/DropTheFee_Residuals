@@ -176,12 +176,25 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       repMerchantMap.get(data.sales_rep_id)!.push(data);
     }
 
-    await supabase
+    const { error: deleteError } = await supabase
       .from('commission_results')
       .delete()
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth)
       .neq('source_type', 'manual');
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError);
+      throw deleteError;
+    }
+
+    const { data: remainingManual } = await supabase
+      .from('commission_results')
+      .select('id, source_type')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth);
+
+    console.log('Rows remaining after delete:', remainingManual?.length, remainingManual?.map(r => r.source_type));
 
     const commissionResults: any[] = [];
 

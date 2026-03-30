@@ -20,6 +20,7 @@ interface UploadSummary {
   unmatchedCount: number;
   unmatchedNames: string[];
   unmatchedExpenses: DejavooExpenseRecord[];
+  expenseSource?: string;
 }
 
 interface Merchant {
@@ -137,6 +138,8 @@ export default function ExpenseUpload({
           ).values()
         );
 
+        const firstExpenseSource = data[0]?.expense_source;
+
         setUploadSummary({
           totalRecords,
           totalAmount,
@@ -144,6 +147,7 @@ export default function ExpenseUpload({
           unmatchedCount: uniqueUnmatched.length,
           unmatchedNames: uniqueUnmatched.map(e => e.merchantName),
           unmatchedExpenses: uniqueUnmatched,
+          expenseSource: firstExpenseSource,
         });
       } else {
         setUploadSummary(null);
@@ -671,11 +675,12 @@ export default function ExpenseUpload({
         </Card>
       )}
 
-      {uploadSummary && uploadSummary.unmatchedCount > 0 && (
+      {uploadSummary && uploadSummary.unmatchedCount > 0 && uploadSummary.expenseSource && (
         <UnmatchedMerchantMapping
           unmatchedExpenses={uploadSummary.unmatchedExpenses}
           agencyId={currentAgencyId}
           reportDate=""
+          expenseSource={uploadSummary.expenseSource}
           onMappingComplete={handleMappingComplete}
         />
       )}

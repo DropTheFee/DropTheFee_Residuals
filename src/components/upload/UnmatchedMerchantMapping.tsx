@@ -20,6 +20,7 @@ interface UnmatchedMerchantMappingProps {
   unmatchedExpenses: UnmatchedExpense[];
   agencyId: string;
   reportDate: string;
+  expenseSource: string;
   onMappingComplete: () => void;
 }
 
@@ -27,6 +28,7 @@ export default function UnmatchedMerchantMapping({
   unmatchedExpenses,
   agencyId,
   reportDate,
+  expenseSource,
   onMappingComplete,
 }: UnmatchedMerchantMappingProps) {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
@@ -79,7 +81,7 @@ export default function UnmatchedMerchantMapping({
         .from('expense_name_mappings')
         .upsert({
           agency_id: agencyId,
-          expense_source: 'Dejavoo',
+          expense_source: expenseSource,
           expense_name: expenseName,
           merchant_id: merchantId,
         });
@@ -92,7 +94,7 @@ export default function UnmatchedMerchantMapping({
         })
         .eq('agency_id', agencyId)
         .eq('merchant_name', expenseName)
-        .eq('expense_source', 'Dejavoo');
+        .eq('expense_source', expenseSource);
 
       toast.success(`Mapping saved for ${expenseName}`);
       onMappingComplete();
@@ -119,7 +121,7 @@ export default function UnmatchedMerchantMapping({
     try {
       const mappingsToSave = Array.from(selectedMappings.entries()).map(([expenseName, merchantId]) => ({
         agency_id: agencyId,
-        expense_source: 'Dejavoo',
+        expense_source: expenseSource,
         expense_name: expenseName,
         merchant_id: merchantId,
       }));
@@ -137,7 +139,7 @@ export default function UnmatchedMerchantMapping({
           })
           .eq('agency_id', agencyId)
           .eq('merchant_name', expenseName)
-          .eq('expense_source', 'Dejavoo');
+          .eq('expense_source', expenseSource);
       }
 
       toast.success(`Saved ${selectedMappings.size} mappings successfully`);
@@ -159,7 +161,7 @@ export default function UnmatchedMerchantMapping({
         .update({ skipped: true })
         .eq('agency_id', agencyId)
         .eq('merchant_name', expenseName)
-        .eq('expense_source', 'Dejavoo');
+        .eq('expense_source', expenseSource);
 
       toast.success(`Skipped ${expenseName}`);
       setConfirmingSkip(null);

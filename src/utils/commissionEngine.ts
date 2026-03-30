@@ -476,8 +476,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .select('rep_user_id, description, amount')
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth)
-      .eq('expense_type', 'manual')
-      .eq('status', 'active');
+      .eq('expense_type', 'manual');
 
     for (const expense of manualExpenses || []) {
       commissionResults.push({

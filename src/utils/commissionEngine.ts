@@ -467,7 +467,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .from('expenses')
       .select('rep_user_id, description, amount')
       .eq('agency_id', agencyId)
-      .eq('period_month', periodMonth)
+      .eq('period_month', periodMonth.substring(0, 10))
       .eq('expense_type', 'manual');
 
     for (const expense of manualExpenses || []) {

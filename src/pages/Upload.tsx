@@ -33,7 +33,7 @@ export default function Upload() {
 
   useEffect(() => {
     if (selectedPeriod) {
-      const date = new Date(selectedPeriod);
+      const date = new Date(selectedPeriod + 'T12:00:00');
       setSelectedMonth(date.getMonth() + 1);
       setSelectedYear(date.getFullYear());
     }

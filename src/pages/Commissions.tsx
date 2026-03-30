@@ -111,7 +111,7 @@ export default function Commissions() {
 
       if (error) throw error;
 
-      const repIds = [...new Set(results?.map(r => r.rep_user_id) || [])];
+      const repIds = [...new Set(results?.map(r => r.user_id) || [])];
       const { data: repUsers } = await supabase
         .from('users')
         .select('id, full_name')
@@ -120,7 +120,7 @@ export default function Commissions() {
       const repMap = new Map<string, RepSummary>();
 
       for (const result of results || []) {
-        const repId = result.rep_user_id;
+        const repId = result.user_id;
         const repName = repUsers?.find(u => u.id === repId)?.full_name || 'Unknown';
 
         if (!repMap.has(repId)) {
@@ -140,7 +140,7 @@ export default function Commissions() {
         if (result.source_type === 'merchant' && !result.override_from_user_id) {
           summary.total_volume = result.volume;
           summary.total_net_residual += result.net_residual;
-          summary.tier_percentage = result.split_pct;
+          summary.tier_percentage = result.tier_percentage;
         }
 
         if (result.source_type === 'merchant') {
@@ -149,7 +149,7 @@ export default function Commissions() {
           }
         }
 
-        summary.total_payout += result.rep_payout;
+        summary.total_payout += result.payout_amount;
       }
 
       setRepSummaries(Array.from(repMap.values()));
@@ -365,7 +365,7 @@ export default function Commissions() {
         `)
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
-        .eq('rep_user_id', repId)
+        .eq('user_id', repId)
         .order('source_type', { ascending: true })
         .order('merchant_name', { ascending: true });
 

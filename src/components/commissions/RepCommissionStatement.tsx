@@ -21,8 +21,8 @@ interface CommissionResult {
   gross_residual: number;
   expenses: number;
   net_residual: number;
-  split_pct: number;
-  rep_payout: number;
+  tier_percentage: number;
+  payout_amount: number;
   source_type: string;
   contract_type: string;
   override_from_user_id: string | null;
@@ -101,7 +101,7 @@ export default function RepCommissionStatement({
         .select('*')
         .eq('agency_id', agencyId)
         .eq('period_month', selectedPeriod)
-        .eq('rep_user_id', repId)
+        .eq('user_id', repId)
         .order('source_type', { ascending: true })
         .order('merchant_name', { ascending: true });
 
@@ -134,8 +134,8 @@ export default function RepCommissionStatement({
   const expenseResults = results.filter(r => r.source_type === 'expense' && r.contract_type === 'expense');
 
   const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
-  const tierPercentage = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
-  const totalPayout = results.reduce((sum, r) => sum + r.rep_payout, 0);
+  const tierPercentage = merchantResults.length > 0 ? merchantResults[0].tier_percentage : 0;
+  const totalPayout = results.reduce((sum, r) => sum + r.payout_amount, 0);
 
   if (loading) {
     return <div className="text-center py-8 text-slate-400">Loading...</div>;
@@ -229,14 +229,14 @@ export default function RepCommissionStatement({
                       {result.payout_date ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.rep_payout)}
+                      {formatCurrency(result.payout_amount)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
                   <TableCell colSpan={3} className="text-right font-semibold text-slate-300">NAB Bonus Subtotal</TableCell>
                   <TableCell className="text-right font-bold text-green-400">
-                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.payout_amount, 0))}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -277,16 +277,16 @@ export default function RepCommissionStatement({
                     <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                       {formatCurrency(result.net_residual)}
                     </TableCell>
-                    <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
-                    <TableCell className={`text-right font-medium ${result.rep_payout < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {formatCurrency(result.rep_payout)}
+                    <TableCell className="text-right text-slate-300">{result.tier_percentage}%</TableCell>
+                    <TableCell className={`text-right font-medium ${result.payout_amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {formatCurrency(result.payout_amount)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
                   <TableCell colSpan={7} className="text-right font-semibold text-slate-300">Merchant Commissions Subtotal</TableCell>
-                  <TableCell className={`text-right font-bold ${merchantResults.reduce((sum, r) => sum + r.rep_payout, 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {formatCurrency(merchantResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  <TableCell className={`text-right font-bold ${merchantResults.reduce((sum, r) => sum + r.payout_amount, 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {formatCurrency(merchantResults.reduce((sum, r) => sum + r.payout_amount, 0))}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -299,7 +299,7 @@ export default function RepCommissionStatement({
         const traineeIds = [...new Set(overrideResults.map(r => r.override_from_user_id))];
         return traineeIds.map(traineeId => {
           const traineeRows = overrideResults.filter(r => r.override_from_user_id === traineeId);
-          const traineeSubtotal = traineeRows.reduce((sum, r) => sum + r.rep_payout, 0);
+          const traineeSubtotal = traineeRows.reduce((sum, r) => sum + r.payout_amount, 0);
           const traineeName = traineeRows[0]?.merchant_name ? null : null;
           return (
             <Card key={traineeId} className="bg-slate-800/50 border-slate-700">
@@ -327,9 +327,9 @@ export default function RepCommissionStatement({
                         <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                           {formatCurrency(result.net_residual)}
                         </TableCell>
-                        <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
-                        <TableCell className={`text-right font-medium ${result.rep_payout < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                          {formatCurrency(result.rep_payout)}
+                        <TableCell className="text-right text-slate-300">{result.tier_percentage}%</TableCell>
+                        <TableCell className={`text-right font-medium ${result.payout_amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {formatCurrency(result.payout_amount)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -375,14 +375,14 @@ export default function RepCommissionStatement({
                       {formatCurrency(result.net_residual)}
                     </TableCell>
                     <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.rep_payout)}
+                      {formatCurrency(result.payout_amount)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
                   <TableCell colSpan={4} className="text-right font-semibold text-slate-300">SüRJ Subtotal</TableCell>
                   <TableCell className="text-right font-bold text-green-400">
-                    {formatCurrency(surjResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                    {formatCurrency(surjResults.reduce((sum, r) => sum + r.payout_amount, 0))}
                   </TableCell>
                 </TableRow>
               </TableBody>

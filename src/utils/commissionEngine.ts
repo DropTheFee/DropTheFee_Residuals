@@ -14,6 +14,7 @@ export interface CommissionOverrideTier {
 
 export interface MerchantCommissionData {
   merchant_id: string;
+  mid: string | null;
   merchant_name: string;
   processor: string | null;
   sales_rep_id: string;
@@ -155,6 +156,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
       merchantCommissionData.push({
         merchant_id: merchant.id,
+        mid: merchant.merchant_id,
         merchant_name: merchant.merchant_name,
         processor: merchant.processor,
         sales_rep_id: merchant.sales_rep_id,
@@ -196,19 +198,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
             commissionResults.push({
               agency_id: agencyId,
               period_month: periodMonth,
-              rep_user_id: repId,
+              user_id: repId,
               merchant_id: merchant.id,
+              mid: merchant.mid,
               contract_type: 'sr_sae',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
               processor: merchant.processor,
-              volume: totalVolume,
+              total_volume: totalVolume,
               monthly_volume: merchant.monthly_volume,
               gross_residual: merchant.gross_residual,
               expenses: merchant.expenses,
               net_residual: merchant.net_residual,
-              split_pct: tierPct,
-              rep_payout: payout,
+              tier_percentage: tierPct,
+              payout_amount: payout,
               override_from_user_id: null,
             });
           }
@@ -221,19 +224,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
             commissionResults.push({
               agency_id: agencyId,
               period_month: periodMonth,
-              rep_user_id: repId,
+              user_id: repId,
               merchant_id: merchant.id,
+              mid: merchant.mid,
               contract_type: 'jr_ae',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
               processor: merchant.processor,
-              volume: totalVolume,
+              total_volume: totalVolume,
               monthly_volume: merchant.monthly_volume,
               gross_residual: merchant.gross_residual,
               expenses: merchant.expenses,
               net_residual: merchant.net_residual,
-              split_pct: tierPct,
-              rep_payout: payout,
+              tier_percentage: tierPct,
+              payout_amount: payout,
               override_from_user_id: null,
             });
           }
@@ -244,19 +248,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
             commissionResults.push({
               agency_id: agencyId,
               period_month: periodMonth,
-              rep_user_id: repId,
+              user_id: repId,
               merchant_id: merchant.id,
+              mid: merchant.mid,
               contract_type: 'katlyn_flat',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
               processor: merchant.processor,
-              volume: totalVolume,
+              total_volume: totalVolume,
               monthly_volume: merchant.monthly_volume,
               gross_residual: merchant.gross_residual,
               expenses: merchant.expenses,
               net_residual: merchant.net_residual,
-              split_pct: 50,
-              rep_payout: payout,
+              tier_percentage: 50,
+              payout_amount: payout,
               override_from_user_id: null,
             });
           }
@@ -283,19 +288,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
             commissionResults.push({
               agency_id: agencyId,
               period_month: periodMonth,
-              rep_user_id: repId,
+              user_id: repId,
               merchant_id: merchant.id,
+              mid: merchant.mid,
               contract_type: 'venture_apps',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
               processor: merchant.processor,
-              volume: totalVolume,
+              total_volume: totalVolume,
               monthly_volume: merchant.monthly_volume,
               gross_residual: merchant.gross_residual,
               expenses: merchant.expenses,
               net_residual: merchant.net_residual,
-              split_pct: tierPct,
-              rep_payout: payout,
+              tier_percentage: tierPct,
+              payout_amount: payout,
               override_from_user_id: null,
             });
           }
@@ -310,19 +316,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
             commissionResults.push({
               agency_id: agencyId,
               period_month: periodMonth,
-              rep_user_id: repId,
+              user_id: repId,
               merchant_id: merchant.merchant_id,
+              mid: merchant.mid,
               contract_type: 'sae_override',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,
               processor: merchant.processor,
-              volume: jrAeTotalVolume,
+              total_volume: jrAeTotalVolume,
               monthly_volume: merchant.monthly_volume,
               gross_residual: merchant.gross_residual,
               expenses: merchant.expenses,
               net_residual: merchant.net_residual,
-              split_pct: overridePct,
-              rep_payout: payout,
+              tier_percentage: overridePct,
+              payout_amount: payout,
               override_from_user_id: contract.override_target_user_id,
             });
           }
@@ -334,7 +341,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
     const { data: surjEntries } = await supabase
       .from('surj_entries')
       .select(`
-        rep_user_id,
+        user_id,
         merchant_name,
         entry_type,
         amount,
@@ -351,7 +358,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       .eq('period_month', periodMonth);
 
     const serviceGroups = new Map<string, {
-      rep_user_id: string;
+      user_id: string;
       service_name: string;
       client_name: string;
       income: number;
@@ -368,7 +375,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         const clientName = (entry as any).surj_services?.surj_clients?.company_name || entry.merchant_name;
 
         serviceGroups.set(serviceKey, {
-          rep_user_id: entry.rep_user_id,
+          user_id: entry.user_id,
           service_name: serviceName,
           client_name: clientName,
           income: 0,
@@ -392,52 +399,54 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: group.rep_user_id,
+        user_id: group.user_id,
         merchant_id: null,
+        mid: null,
         contract_type: 'surj',
         source_type: 'surj',
         merchant_name: `${group.client_name} - ${group.service_name}`,
         processor: null,
-        volume: 0,
+        total_volume: 0,
         monthly_volume: 0,
         gross_residual: group.income,
         expenses: group.expenses,
         net_residual: netRevenue,
-        split_pct: 50,
-        rep_payout: commission,
+        tier_percentage: 50,
+        payout_amount: commission,
         override_from_user_id: null,
       });
     }
 
     const { data: nabRecords } = await supabase
       .from('nab_records')
-      .select('rep_user_id, merchant_name, amount')
+      .select('user_id, merchant_name, amount')
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth);
 
     const nabByRep = new Map<string, number>();
     for (const nab of nabRecords || []) {
-      const current = nabByRep.get(nab.rep_user_id) || 0;
-      nabByRep.set(nab.rep_user_id, current + parseFloat(nab.amount));
+      const current = nabByRep.get(nab.user_id) || 0;
+      nabByRep.set(nab.user_id, current + parseFloat(nab.amount));
     }
 
     for (const [repId, totalAmount] of nabByRep.entries()) {
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: repId,
+        user_id: repId,
         merchant_id: null,
+        mid: null,
         contract_type: 'nab',
         source_type: 'nab',
         merchant_name: 'EPI New Account Bonus',
         processor: null,
-        volume: 0,
+        total_volume: 0,
         monthly_volume: 0,
         gross_residual: 0,
         expenses: 0,
         net_residual: 0,
-        split_pct: 0,
-        rep_payout: totalAmount,
+        tier_percentage: 0,
+        payout_amount: totalAmount,
         override_from_user_id: null,
       });
     }
@@ -454,19 +463,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: expense.user_id,
+        user_id: expense.user_id,
         merchant_id: null,
+        mid: null,
         contract_type: 'expense',
         source_type: 'expense',
         merchant_name: expense.description,
         processor: null,
-        volume: 0,
+        total_volume: 0,
         monthly_volume: 0,
         gross_residual: 0,
         expenses: expense.amount,
         net_residual: -expense.amount,
-        split_pct: 0,
-        rep_payout: -expense.amount,
+        tier_percentage: 0,
+        payout_amount: -expense.amount,
         override_from_user_id: null,
       });
     }
@@ -474,11 +484,11 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
     const repTotals = new Map<string, number>();
     const repContractsMap = new Map<string, string>();
     for (const result of commissionResults) {
-      const current = repTotals.get(result.rep_user_id) || 0;
-      repTotals.set(result.rep_user_id, current + result.rep_payout);
+      const current = repTotals.get(result.user_id) || 0;
+      repTotals.set(result.user_id, current + result.payout_amount);
 
       if (result.contract_type && !['surj', 'nab', 'subscription', 'setup_full', 'setup_split', 'expense', 'manual_expense'].includes(result.contract_type)) {
-        repContractsMap.set(result.rep_user_id, result.contract_type);
+        repContractsMap.set(result.user_id, result.contract_type);
       }
     }
 
@@ -490,19 +500,20 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         commissionResults.push({
           agency_id: agencyId,
           period_month: periodMonth,
-          rep_user_id: jordanId,
+          user_id: jordanId,
           merchant_id: null,
+          mid: null,
           contract_type: 'jr_ae',
           source_type: 'expense',
           merchant_name: `Jr AE Negative Balance Rollup`,
           processor: null,
-          volume: 0,
+          total_volume: 0,
           monthly_volume: 0,
           gross_residual: 0,
           expenses: Math.abs(total),
           net_residual: total,
-          split_pct: 0,
-          rep_payout: total,
+          tier_percentage: 0,
+          payout_amount: total,
           override_from_user_id: repId,
         });
       }

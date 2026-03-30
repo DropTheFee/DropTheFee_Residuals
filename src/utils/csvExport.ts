@@ -72,7 +72,7 @@ export const exportRepStatementToHTML = async (
       align-items: flex-start;
     }
     .header-left { flex: 1; }
-    .header-logo { height: 60px; margin-left: 20px; }
+    .header-logo { height: 60px; margin-left: 20px; background-color: white; padding: 4px; }
     .rep-name { font-size: 32px; font-weight: bold; margin: 0 0 10px 0; }
     .period { font-size: 18px; color: #333333; margin: 0 0 5px 0; }
     .agency { font-size: 16px; color: #666666; margin: 0; }

@@ -48,7 +48,15 @@ export const parseFileWithMapping = async (
       }
 
       const merchantNameLower = merchantName.toLowerCase();
-      if (merchantNameLower === 'total' || merchantNameLower.includes('total') || merchantNameLower === '') {
+      if (
+        merchantNameLower === 'total' ||
+        merchantNameLower.includes('total') ||
+        merchantNameLower === '' ||
+        merchantNameLower === 'user class' ||
+        merchantNameLower === 'executive' ||
+        merchantNameLower.includes('user class') ||
+        merchantNameLower.includes('executive')
+      ) {
         return;
       }
 

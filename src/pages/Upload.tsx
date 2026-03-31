@@ -8,8 +8,10 @@ import ManualExpenses from '@/components/upload/ManualExpenses';
 import { NABUpload } from '@/components/upload/NABUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface CommissionPeriod {
   period_month: string;
@@ -26,6 +28,7 @@ export default function Upload() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<number>(0);
+  const [isFetchingVivid, setIsFetchingVivid] = useState(false);
 
   useEffect(() => {
     loadAgencyAndPeriods();
@@ -81,6 +84,107 @@ export default function Upload() {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
+  const fetchFromVividAPI = async () => {
+    if (!agencyId || !selectedPeriod) {
+      toast.error('Agency ID or period not selected');
+      return;
+    }
+
+    setIsFetchingVivid(true);
+
+    try {
+      const { data: settingData, error: settingError } = await supabase
+        .from('agency_settings')
+        .select('value')
+        .eq('agency_id', agencyId)
+        .eq('key', 'vivid_api_token')
+        .maybeSingle();
+
+      if (settingError) throw settingError;
+      if (!settingData?.value) {
+        toast.error('Vivid API token not configured for this agency');
+        return;
+      }
+
+      const token = settingData.value;
+      const periodPrefix = selectedPeriod.substring(0, 7);
+
+      let allResults: any[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+
+      while (currentPage <= totalPages) {
+        const response = await fetch(
+          `https://dropthefee.info/api/residual?page=${currentPage}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data._meta) {
+          totalPages = data._meta.pageCount;
+        }
+
+        if (data.data && Array.isArray(data.data)) {
+          const filteredResults = data.data.filter((item: any) =>
+            item.date && item.date.startsWith(periodPrefix)
+          );
+          allResults = [...allResults, ...filteredResults];
+        }
+
+        currentPage++;
+      }
+
+      let matchedCount = 0;
+      let totalCount = allResults.length;
+
+      for (const result of allResults) {
+        const merchantMID = String(result.merchant?.MID || '');
+        if (!merchantMID) continue;
+
+        const { data: merchantData } = await supabase
+          .from('merchants')
+          .select('id')
+          .eq('merchant_id', merchantMID)
+          .maybeSingle();
+
+        if (merchantData) {
+          const { error: upsertError } = await supabase
+            .from('merchant_history')
+            .upsert({
+              merchant_id: merchantData.id,
+              report_date: result.date,
+              monthly_volume: result.merchant?.sales?.amount || 0,
+              monthly_income: result.revenue || 0,
+              agency_id: agencyId,
+            }, {
+              onConflict: 'merchant_id,report_date',
+            });
+
+          if (!upsertError) {
+            matchedCount++;
+          }
+        }
+      }
+
+      toast.success(`Imported ${matchedCount} of ${totalCount} merchants matched`);
+    } catch (error: any) {
+      console.error('Error fetching from Vivid API:', error);
+      toast.error(`Failed to fetch from Vivid API: ${error.message}`);
+    } finally {
+      setIsFetchingVivid(false);
+    }
+  };
+
   if (!selectedPeriod || selectedMonth === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
@@ -134,6 +238,27 @@ export default function Upload() {
           setSelectedYear(year);
         }}
       />
+
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">Fetch from Vivid API</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={fetchFromVividAPI}
+            disabled={isFetchingVivid}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isFetchingVivid ? 'Fetching...' : 'Fetch from Vivid API'}
+          </Button>
+          {isFetchingVivid && (
+            <p className="text-slate-400 text-sm mt-2 text-center">
+              Fetching and importing data, please wait...
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="relative py-8">
         <div className="absolute inset-0 flex items-center">

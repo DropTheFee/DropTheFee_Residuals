@@ -30,7 +30,7 @@ interface RepSummary {
   rep_id: string;
   rep_name: string;
   total_volume: number;
-  split_pct: number;
+  tier_percentage: number;
   total_net_residual: number;
   total_payout: number;
   contracts: string[];
@@ -77,7 +77,7 @@ export default function Commissions() {
       setAgencyId(profile.agency_id);
       setUserRole(profile.role || '');
 
-      const { data: periods, error: periodsError } = await supabase
+      const { data: existingPeriods, error: periodsError } = await supabase
         .from('commission_periods')
         .select('*')
         .eq('agency_id', profile.agency_id)
@@ -85,10 +85,32 @@ export default function Commissions() {
 
       if (periodsError) throw periodsError;
 
-      setPeriods(periods || []);
-      if (periods && periods.length > 0 && !selectedPeriod) {
-        setSelectedPeriod(periods[0].period_month);
-        setCurrentPeriodStatus(periods[0].status);
+      const allPeriods = existingPeriods || [];
+
+      const currentDate = new Date();
+      const lastSixMonths = [];
+      for (let i = 0; i < 6; i++) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() - i;
+        const d = new Date(year, month, 1);
+        const periodMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        if (!allPeriods.find(p => p.period_month === periodMonth)) {
+          lastSixMonths.push({
+            id: periodMonth,
+            period_month: periodMonth,
+            status: 'open',
+          });
+        }
+      }
+
+      const combinedPeriods = [...allPeriods, ...lastSixMonths].sort((a, b) =>
+        b.period_month.localeCompare(a.period_month)
+      );
+
+      setPeriods(combinedPeriods);
+      if (combinedPeriods.length > 0 && !selectedPeriod) {
+        setSelectedPeriod(combinedPeriods[0].period_month);
+        setCurrentPeriodStatus(combinedPeriods[0].status);
       }
 
       setLoading(false);
@@ -128,7 +150,7 @@ export default function Commissions() {
             rep_id: repId,
             rep_name: repName,
             total_volume: 0,
-            split_pct: 0,
+            tier_percentage: 0,
             total_net_residual: 0,
             total_payout: 0,
             contracts: [],
@@ -137,13 +159,11 @@ export default function Commissions() {
 
         const summary = repMap.get(repId)!;
 
-       if (result.source_type === 'merchant' && !result.override_from_user_id) {
-  if (result.contract_type !== 'sae_override') {
-    summary.total_volume = result.volume;
-    summary.split_pct = result.split_pct;
-  }
-  summary.total_net_residual += result.net_residual;
-}
+        if (result.source_type === 'merchant' && !result.override_from_user_id) {
+          summary.total_volume = result.volume;
+          summary.total_net_residual += result.net_residual;
+          summary.tier_percentage = result.split_pct;
+        }
 
         if (result.source_type === 'merchant') {
           if (!summary.contracts.includes(result.contract_type)) {
@@ -151,15 +171,7 @@ export default function Commissions() {
           }
         }
 
-        if (result.source_type === 'manual') {
-          summary.total_payout += result.gross_residual;
-          summary.total_net_residual += result.gross_residual;
-          if (!summary.contracts.includes(result.contract_type)) {
-            summary.contracts.push(result.contract_type);
-          }
-        } else {
-          summary.total_payout += result.rep_payout;
-        }
+        summary.total_payout += result.rep_payout;
       }
 
       setRepSummaries(Array.from(repMap.values()));
@@ -183,25 +195,27 @@ export default function Commissions() {
 
       const { data: currentExpenses } = await supabase
         .from('expenses')
-        .select('rep_user_id, description, amount')
+        .select('user_id, description, amount')
         .eq('agency_id', agencyId)
-        .eq('period_month', currentPeriodDate.toISOString().substring(0, 10))
-        .eq('expense_type', 'manual');
+        .eq('period_month', currentPeriodDate.toISOString())
+        .eq('expense_type', 'manual')
+        .eq('status', 'active');
 
       const currentExpenseKeys = new Set(
-        (currentExpenses || []).map((e: any) => `${e.rep_user_id}-${e.description}`)
+        (currentExpenses || []).map((e: any) => `${e.user_id}-${e.description}`)
       );
 
       const { data: previousRecurringExpenses } = await supabase
         .from('expenses')
-        .select('id, rep_user_id, description, amount, users!expenses_rep_user_id_fkey(full_name)')
+        .select('id, user_id, description, amount, users!expenses_user_id_fkey(full_name)')
         .eq('agency_id', agencyId)
-        .eq('period_month', previousPeriod.substring(0, 10))
+        .eq('period_month', previousPeriod)
         .eq('expense_type', 'manual')
-        .eq('recurring', true);
+        .eq('recurring', true)
+        .eq('status', 'active');
 
       const unappliedExpenses = (previousRecurringExpenses || []).filter((e: any) => {
-        const key = `${e.rep_user_id}-${e.description}`;
+        const key = `${e.user_id}-${e.description}`;
         return !currentExpenseKeys.has(key);
       });
 
@@ -228,7 +242,7 @@ export default function Commissions() {
 
       const newExpenses = recurringExpenses.map((e: any) => ({
         agency_id: agencyId,
-        rep_user_id: e.rep_user_id,
+        user_id: e.user_id,
         expense_type: 'manual',
         amount: e.amount,
         description: e.description,
@@ -389,7 +403,7 @@ export default function Commissions() {
         mid: r.merchants?.merchant_id || ''
       }));
 
-      const filename = await exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
+      const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Error downloading statement:', error);
@@ -505,7 +519,7 @@ export default function Commissions() {
                   <div>
                     <CardTitle className="text-white">{rep.rep_name}</CardTitle>
                     <div className="text-sm text-slate-400 mt-1">
-                      Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.split_pct}% |
+                      Volume: {formatCurrency(rep.total_volume)} | Tier: {rep.tier_percentage}% |
                       Contracts: {rep.contracts.join(', ')}
                     </div>
                   </div>

@@ -114,15 +114,13 @@ export default function Upload() {
       let totalPages = 1;
 
       while (currentPage <= totalPages) {
-        const response = await fetch(
-          `https://dropthefee.info/api/residual?page=${currentPage}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const response = await fetch('/api/vivid-residuals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token, page: currentPage }),
+        });
 
         if (!response.ok) {
           throw new Error(`API request failed: ${response.statusText}`);

@@ -137,13 +137,13 @@ export default function Commissions() {
 
         const summary = repMap.get(repId)!;
 
-        if (result.source_type === 'merchant' && !result.override_from_rep_user_id) {
-          summary.total_volume = result.volume;
-          summary.total_net_residual += result.net_residual;
-          summary.split_pct = result.split_pct;
-        } else if (result.source_type === 'manual' && result.volume > 0) {
-          summary.total_volume += result.monthly_volume;
-        }
+       if (result.source_type === 'merchant' && !result.override_from_user_id) {
+  if (result.contract_type !== 'sae_override') {
+    summary.total_volume = result.volume;
+    summary.split_pct = result.split_pct;
+  }
+  summary.total_net_residual += result.net_residual;
+}
 
         if (result.source_type === 'merchant') {
           if (!summary.contracts.includes(result.contract_type)) {

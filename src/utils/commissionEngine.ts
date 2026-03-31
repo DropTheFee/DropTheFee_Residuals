@@ -325,7 +325,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
               agency_id: agencyId,
               period_month: periodMonth,
               rep_user_id: repId,
-              merchant_id: merchant.merchant_id,
+              merchant_id: merchant.id,
               contract_type: 'sae_override',
               source_type: 'merchant',
               merchant_name: merchant.merchant_name,

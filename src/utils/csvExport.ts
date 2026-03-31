@@ -18,30 +18,29 @@ export const exportRepStatementToHTML = async (
   const date = new Date(periodMonth + 'T12:00:00');
   const month = date.toLocaleDateString('en-US', { month: 'long' });
   const year = date.getFullYear();
-
   const sanitizeName = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `${sanitizeName(repName)}_${month}_${year}_Statement.pdf`;
-
-  // Fetch merchant MIDs
-  const merchantIds = results.map((r) => r.merchant_id).filter(Boolean);
-  const merchantMidMap: Record<string, string> = {};
-
-  if (merchantIds.length > 0) {
-    const { data: merchantData } = await supabase
-      .from('merchants')
-      .select('id, merchant_id')
-      .in('id', merchantIds);
-
-    if (merchantData) {
-      merchantData.forEach((m: any) => {
-        merchantMidMap[m.id] = m.merchant_id || '';
-      });
-    }
-  }
 
   const merchantResults = results.filter(
     (r) => r.source_type === 'merchant' && !r.override_from_user_id && r.rep_payout !== 0
   );
+
+  // Look up MIDs by merchant name
+  const merchantNames = merchantResults.map((r) => r.merchant_name).filter(Boolean);
+  const merchantMidMap: Record<string, string> = {};
+
+  if (merchantNames.length > 0) {
+    const { data: merchantData } = await supabase
+      .from('merchants')
+      .select('merchant_name, merchant_id')
+      .in('merchant_name', merchantNames);
+
+    if (merchantData) {
+      merchantData.forEach((m: any) => {
+        merchantMidMap[m.merchant_name] = m.merchant_id || '';
+      });
+    }
+  }
 
   const totalVolume = merchantResults.reduce((s, r) => s + (r.monthly_volume || 0), 0);
   const totalGross = merchantResults.reduce((s, r) => s + (r.gross_residual || 0), 0);
@@ -51,23 +50,19 @@ export const exportRepStatementToHTML = async (
     .filter((r) => r.rep_payout !== 0)
     .reduce((s, r) => s + (r.rep_payout || 0), 0);
 
-  // Build PDF landscape
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 
-  // Header
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.text(repName, 40, 50);
-
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text(`${month} ${year}`, 40, 68);
   doc.text('Recherché Merchant Solutions', 40, 84);
 
-  // Table
   const tableRows = merchantResults.map((r) => [
     r.merchant_name || '',
-    merchantMidMap[r.merchant_id] || r.mid || '',
+    merchantMidMap[r.merchant_name] || r.mid || '',
     r.processor || '',
     formatCurrency(r.monthly_volume || 0),
     `${(r.split_pct || 0).toFixed(2)}%`,
@@ -77,7 +72,6 @@ export const exportRepStatementToHTML = async (
     formatCurrency(r.rep_payout || 0),
   ]);
 
-  // Totals row
   tableRows.push([
     'TOTALS', '', '',
     formatCurrency(totalVolume),
@@ -110,7 +104,6 @@ export const exportRepStatementToHTML = async (
       8: { halign: 'right', cellWidth: 75 },
     },
     didParseCell: (data) => {
-      // Bold the totals row
       if (data.row.index === tableRows.length - 1) {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fillColor = [230, 230, 230];

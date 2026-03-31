@@ -60,7 +60,10 @@ export const exportRepStatementToHTML = async (
   doc.text(`${month} ${year}`, 40, 68);
   doc.text('Recherché Merchant Solutions', 40, 84);
 
-doc.addImage('/logo.png', 'PNG', 620, 10, 100, 150);
+const imgProps = (doc as any).getImageProperties('/logo.png');
+const logoWidth = 120;
+const logoHeight = (imgProps.height * logoWidth) / imgProps.width;
+doc.addImage('/logo.png', 'PNG', 650, 10, logoWidth, logoHeight);
   
   const tableRows = merchantResults.map((r) => [
     r.merchant_name || '',

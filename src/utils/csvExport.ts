@@ -90,7 +90,8 @@ export const exportRepStatementToHTML = async (
     .totals-row { font-weight: bold; background-color: #e9ecef !important; }
     .totals-row td { border-top: 2px solid #000000; }
     @media print {
-      @page { orientation: landscape; size: landscape; }
+      @page { size: landscape; margin: 10mm; }
+  body { padding: 20px; }
     }
   </style>
 </head>
@@ -101,7 +102,7 @@ export const exportRepStatementToHTML = async (
       <p class="period">${month} ${year}</p>
       <p class="agency">Recherché Merchant Solutions</p>
     </div>
-    <img src="${logoBase64}" alt="DropTheFee" class="header-logo" />
+    <img src="${logoBase64}" alt="DropTheFee" class="header-logo" style="mix-blend-mode: multiply;" />
   </div>
   <table>
     <thead>

@@ -60,7 +60,7 @@ export const exportRepStatementToHTML = async (
   doc.text(`${month} ${year}`, 40, 68);
   doc.text('Recherché Merchant Solutions', 40, 84);
 
-doc.addImage('/logo.png', 'PNG', 580, 20, 160, 40);
+doc.addImage('/logo.png', 'PNG', 620, 10, 200, 55);
   
   const tableRows = merchantResults.map((r) => [
     r.merchant_name || '',
@@ -95,9 +95,9 @@ doc.addImage('/logo.png', 'PNG', 580, 20, 160, 40);
     styles: { fontSize: 8, cellPadding: 4 },
     headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 120 },
+      0: { cellWidth: 120},
       1: { cellWidth: 100},
-      2: { cellWidth: 60 },
+      2: { cellWidth: 90},
       3: { halign: 'right', cellWidth: 75 },
       4: { halign: 'right', cellWidth: 45 },
       5: { halign: 'right', cellWidth: 80 },

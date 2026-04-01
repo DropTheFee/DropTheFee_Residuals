@@ -57,6 +57,36 @@ export const parsePaysafeFile = async (
           return;
         }
 
+        const row0 = jsonData[0] || [];
+        const row1 = jsonData[1] || [];
+
+        let residualColumn = config.residualColumn;
+        for (let i = 0; i < row0.length; i++) {
+          if (row0[i] === 'Residual') {
+            residualColumn = i;
+            break;
+          }
+        }
+
+        let volumeColumns = config.volumeColumns;
+        for (let i = 0; i < row0.length; i++) {
+          if (row0[i] === 'SalesVolume') {
+            const detectedColumns: number[] = [];
+            let j = i;
+            while (j < row0.length && (row0[j] === 'SalesVolume' || row0[j] === null || row0[j] === undefined || row0[j] === '')) {
+              if (row0[j] === 'SalesVolume' || (row0[j] === null || row0[j] === undefined || row0[j] === '')) {
+                detectedColumns.push(j);
+              }
+              j++;
+              if (j < row0.length && row0[j] !== null && row0[j] !== undefined && row0[j] !== '' && row0[j] !== 'SalesVolume') {
+                break;
+              }
+            }
+            volumeColumns = detectedColumns;
+            break;
+          }
+        }
+
         const merchantData: MerchantData[] = [];
         const errors: string[] = [];
 
@@ -81,7 +111,7 @@ export const parsePaysafeFile = async (
             }
 
             let volume = 0;
-            for (const colIndex of config.volumeColumns) {
+            for (const colIndex of volumeColumns) {
               const value = row[colIndex];
               if (value !== null && value !== undefined && value !== '') {
                 const num = parseFloat(String(value).replace(/[$,\s]/g, ''));
@@ -91,7 +121,7 @@ export const parsePaysafeFile = async (
               }
             }
 
-            const residualValue = row[config.residualColumn];
+            const residualValue = row[residualColumn];
             const residual = parseNumber(residualValue);
 
             const residualPercentage = volume > 0 ? (residual / volume) * 100 : 0;

@@ -107,7 +107,9 @@ export default function Upload() {
       }
 
       const token = settingData.value;
-      const periodPrefix = selectedPeriod.substring(0, 7);
+      const periodDate = new Date(selectedPeriod + 'T12:00:00');
+periodDate.setMonth(periodDate.getMonth() - 1);
+const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
 
       let allResults: any[] = [];
       let currentPage = 1;
@@ -160,7 +162,7 @@ export default function Upload() {
             .from('merchant_history')
             .upsert({
               merchant_id: merchantData.id,
-              report_date: result.date,
+              report_date: selectedPeriod.substring(0, 10),
               monthly_volume: result.merchant?.sales?.amount || 0,
               monthly_income: result.revenue || 0,
               agency_id: agencyId,

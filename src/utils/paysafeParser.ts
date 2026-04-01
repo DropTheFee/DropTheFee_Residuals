@@ -16,7 +16,7 @@ const PAYSAFE_CONFIG: PaysafeConfig = {
   midColumn: 1,
   merchantNameColumn: 2,
   volumeColumns: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-  residualColumn: 270,
+  residualColumn: 261,
   agentFilterColumn: 9,
   openDateColumn: 8,
   closeDateColumn: null,
@@ -62,7 +62,7 @@ export const parsePaysafeFile = async (
 
         let residualColumn = config.residualColumn;
         for (let i = 0; i < row0.length; i++) {
-          if (row0[i] === 'Residual') {
+          if (String(row0[i]).trim() === 'Residual') {
             residualColumn = i;
             break;
           }
@@ -70,22 +70,24 @@ export const parsePaysafeFile = async (
 
         let volumeColumns = config.volumeColumns;
         for (let i = 0; i < row0.length; i++) {
-          if (row0[i] === 'SalesVolume') {
+          if (String(row0[i]).trim() === 'SalesVolume') {
             const detectedColumns: number[] = [];
-            let j = i;
-            while (j < row0.length && (row0[j] === 'SalesVolume' || row0[j] === null || row0[j] === undefined || row0[j] === '')) {
-              if (row0[j] === 'SalesVolume' || (row0[j] === null || row0[j] === undefined || row0[j] === '')) {
-                detectedColumns.push(j);
-              }
-              j++;
-              if (j < row0.length && row0[j] !== null && row0[j] !== undefined && row0[j] !== '' && row0[j] !== 'SalesVolume') {
-                break;
-              }
-            }
-            volumeColumns = detectedColumns;
-            break;
-          }
-        }
+            let j = i + 1;
+    while (j < row0.length) {
+      const cellVal = row0[j];
+      // Stop when we hit the next non-empty header
+      if (cellVal !== null && cellVal !== undefined && String(cellVal).trim() !== '') {
+        break;
+      }
+      detectedColumns.push(j);
+      j++;
+    }
+    if (detectedColumns.length > 0) {
+      volumeColumns = detectedColumns;
+    }
+    break;
+  }
+}
 
         const merchantData: MerchantData[] = [];
         const errors: string[] = [];

@@ -216,7 +216,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       if (commPeriodMonth) {
         const { data: repResults } = await supabase
           .from('commission_results')
-          .select('rep_user_id, rep_payout, monthly_volume, merchant_id, source_type')
+          .select('rep_user_id, rep_payout, monthly_volume, merchant_name, source_type')
           .eq('agency_id', profile.agency_id)
           .eq('period_month', commPeriodMonth);
 
@@ -228,16 +228,16 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
             .in('id', repIds);
           const repNameMap = new Map(repUsers?.map(u => [u.id, u.full_name]) || []);
 
-          const repMap = new Map<string, { volume: number; payout: number; merchantIds: Set<string> }>();
+          const repMap = new Map<string, { volume: number; payout: number; merchantNames: Set<string> }>();
           repResults.forEach((r: any) => {
             if (!repMap.has(r.rep_user_id)) {
-              repMap.set(r.rep_user_id, { volume: 0, payout: 0, merchantIds: new Set() });
+              repMap.set(r.rep_user_id, { volume: 0, payout: 0, merchantNames: new Set() });
             }
             const entry = repMap.get(r.rep_user_id)!;
             entry.payout += r.rep_payout || 0;
-            if (r.source_type === 'merchant' && r.rep_payout !== 0 && r.merchant_id) {
+            if (r.source_type === 'merchant' && (r.rep_payout || 0) !== 0 && r.merchant_name) {
               entry.volume += r.monthly_volume || 0;
-              entry.merchantIds.add(r.merchant_id);
+              entry.merchantNames.add(r.merchant_name);
             }
           });
 
@@ -248,7 +248,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                 rep_name: getRepDisplayName(repId, repNameMap.get(repId) ?? null),
                 volume: data.volume,
                 payout: data.payout,
-                merchant_count: data.merchantIds.size,
+                merchant_count: data.merchantNames.size,
                 pct: (data.payout / agencyTotalResidual) * 100,
               }))
               .filter(r => r.payout > 0)

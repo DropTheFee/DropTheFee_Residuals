@@ -199,9 +199,29 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       // ── Rep performance ──────────────────────────────────────────────────
       const { data: repResults } = await supabase
         .from('commission_results')
-        .select('rep_user_id, rep_payout, monthly_volume, merchant_id, source_type')
+        .select('rep_user_id, rep_payout, monthly_volume, source_type')
         .eq('agency_id', profile.agency_id)
         .eq('period_month', latestPeriod.report_date);
+
+      // Dedicated query for merchant counts: distinct merchant_id per rep,
+      // source_type = 'merchant' and rep_payout != 0 only.
+      const { data: merchantCountRows, error: merchantCountError } = await supabase
+        .from('commission_results')
+        .select('rep_user_id, merchant_id')
+        .eq('agency_id', profile.agency_id)
+        .eq('period_month', latestPeriod.report_date)
+        .eq('source_type', 'merchant')
+        .neq('rep_payout', 0);
+
+      console.log('[Dashboard] merchantCountRows:', merchantCountRows, 'error:', merchantCountError);
+
+      const repMerchantCountMap = new Map<string, Set<string>>();
+      merchantCountRows?.forEach((r: any) => {
+        if (!repMerchantCountMap.has(r.rep_user_id)) {
+          repMerchantCountMap.set(r.rep_user_id, new Set());
+        }
+        if (r.merchant_id) repMerchantCountMap.get(r.rep_user_id)!.add(r.merchant_id);
+      });
 
       const agencyTotalResidual =
         currentPeriodData?.reduce((s, r) => s + (Number(r.monthly_income) || 0), 0) || 1;
@@ -214,13 +234,12 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           .in('id', repIds);
         const repNameMap = new Map(repUsers?.map(u => [u.id, u.full_name]) || []);
 
-        const repMap = new Map<string, { volume: number; payout: number; merchantIds: Set<string> }>();
+        const repMap = new Map<string, { volume: number; payout: number }>();
         repResults.forEach((r: any) => {
-          const existing = repMap.get(r.rep_user_id) || { volume: 0, payout: 0, merchantIds: new Set() };
+          const existing = repMap.get(r.rep_user_id) || { volume: 0, payout: 0 };
           existing.payout += r.rep_payout || 0;
           if (r.source_type === 'merchant' && r.rep_payout !== 0) {
             existing.volume += r.monthly_volume || 0;
-            if (r.merchant_id) existing.merchantIds.add(r.merchant_id);
           }
           repMap.set(r.rep_user_id, existing);
         });
@@ -232,7 +251,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
               rep_name: getRepDisplayName(repId, repNameMap.get(repId) ?? null),
               volume: data.volume,
               payout: data.payout,
-              merchant_count: data.merchantIds.size,
+              merchant_count: repMerchantCountMap.get(repId)?.size ?? 0,
               pct: (data.payout / agencyTotalResidual) * 100,
             }))
             .filter(r => r.payout > 0)
@@ -574,7 +593,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                     tickLine={false}
                   />
                   <YAxis
-                    yAxisId="volume"
+                    yAxisId="left"
                     orientation="left"
                     tickFormatter={formatCompact}
                     tick={{ fill: '#94a3b8', fontSize: 11 }}
@@ -583,13 +602,14 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                     width={56}
                   />
                   <YAxis
-                    yAxisId="residual"
+                    yAxisId="right"
                     orientation="right"
                     tickFormatter={formatCompact}
                     tick={{ fill: '#94a3b8', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     width={56}
+                    domain={['auto', 'auto']}
                   />
                   <Tooltip
                     contentStyle={{
@@ -611,9 +631,9 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                       </span>
                     )}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" fill="#3b82f6" radius={[2, 2, 0, 0]} opacity={0.85} />
+                  <Bar yAxisId="left" dataKey="volume" fill="#3b82f6" radius={[2, 2, 0, 0]} opacity={0.85} />
                   <Line
-                    yAxisId="residual"
+                    yAxisId="right"
                     type="monotone"
                     dataKey="residual"
                     stroke="#10b981"

@@ -197,72 +197,66 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       }
 
       // ── Rep performance ──────────────────────────────────────────────────
-      const { data: repResults } = await supabase
+      // Use the latest period_month from commission_results directly — do NOT
+      // reuse latestPeriod.report_date (merchant_history) because uploads and
+      // commission calculations can be on different periods.
+      const { data: latestCommPeriod } = await supabase
         .from('commission_results')
-        .select('rep_user_id, rep_payout, monthly_volume, source_type')
+        .select('period_month')
         .eq('agency_id', profile.agency_id)
-        .eq('period_month', latestPeriod.report_date);
+        .order('period_month', { ascending: false })
+        .limit(1)
+        .single();
 
-      // Dedicated query for merchant counts: distinct merchant_id per rep,
-      // source_type = 'merchant' and rep_payout != 0 only.
-      const { data: merchantCountRows, error: merchantCountError } = await supabase
-        .from('commission_results')
-        .select('rep_user_id, merchant_id')
-        .eq('agency_id', profile.agency_id)
-        .eq('period_month', latestPeriod.report_date)
-        .eq('source_type', 'merchant')
-        .neq('rep_payout', 0);
-
-      console.log('[Dashboard] merchantCount full response:', {
-        data: merchantCountRows,
-        error: merchantCountError,
-        rowCount: merchantCountRows?.length ?? null,
-        periodMonth: latestPeriod.report_date,
-        agencyId: profile.agency_id,
-      });
-
-      const repMerchantCountMap = new Map<string, Set<string>>();
-      merchantCountRows?.forEach((r: any) => {
-        if (!repMerchantCountMap.has(r.rep_user_id)) {
-          repMerchantCountMap.set(r.rep_user_id, new Set());
-        }
-        if (r.merchant_id) repMerchantCountMap.get(r.rep_user_id)!.add(r.merchant_id);
-      });
+      const commPeriodMonth = latestCommPeriod?.period_month ?? null;
 
       const agencyTotalResidual =
         currentPeriodData?.reduce((s, r) => s + (Number(r.monthly_income) || 0), 0) || 1;
 
-      if (repResults && repResults.length > 0) {
-        const repIds = [...new Set(repResults.map((r: any) => r.rep_user_id as string))];
-        const { data: repUsers } = await supabase
-          .from('users')
-          .select('id, full_name')
-          .in('id', repIds);
-        const repNameMap = new Map(repUsers?.map(u => [u.id, u.full_name]) || []);
+      if (commPeriodMonth) {
+        const { data: repResults } = await supabase
+          .from('commission_results')
+          .select('rep_user_id, rep_payout, monthly_volume, merchant_id, source_type')
+          .eq('agency_id', profile.agency_id)
+          .eq('period_month', commPeriodMonth);
 
-        const repMap = new Map<string, { volume: number; payout: number }>();
-        repResults.forEach((r: any) => {
-          const existing = repMap.get(r.rep_user_id) || { volume: 0, payout: 0 };
-          existing.payout += r.rep_payout || 0;
-          if (r.source_type === 'merchant' && r.rep_payout !== 0) {
-            existing.volume += r.monthly_volume || 0;
-          }
-          repMap.set(r.rep_user_id, existing);
-        });
+        if (repResults && repResults.length > 0) {
+          const repIds = [...new Set(repResults.map((r: any) => r.rep_user_id as string))];
+          const { data: repUsers } = await supabase
+            .from('users')
+            .select('id, full_name')
+            .in('id', repIds);
+          const repNameMap = new Map(repUsers?.map(u => [u.id, u.full_name]) || []);
 
-        setRepPerformance(
-          Array.from(repMap.entries())
-            .map(([repId, data]) => ({
-              rep_id: repId,
-              rep_name: getRepDisplayName(repId, repNameMap.get(repId) ?? null),
-              volume: data.volume,
-              payout: data.payout,
-              merchant_count: repMerchantCountMap.get(repId)?.size ?? 0,
-              pct: (data.payout / agencyTotalResidual) * 100,
-            }))
-            .filter(r => r.payout > 0)
-            .sort((a, b) => b.payout - a.payout)
-        );
+          const repMap = new Map<string, { volume: number; payout: number; merchantIds: Set<string> }>();
+          repResults.forEach((r: any) => {
+            if (!repMap.has(r.rep_user_id)) {
+              repMap.set(r.rep_user_id, { volume: 0, payout: 0, merchantIds: new Set() });
+            }
+            const entry = repMap.get(r.rep_user_id)!;
+            entry.payout += r.rep_payout || 0;
+            if (r.source_type === 'merchant' && r.rep_payout !== 0 && r.merchant_id) {
+              entry.volume += r.monthly_volume || 0;
+              entry.merchantIds.add(r.merchant_id);
+            }
+          });
+
+          setRepPerformance(
+            Array.from(repMap.entries())
+              .map(([repId, data]) => ({
+                rep_id: repId,
+                rep_name: getRepDisplayName(repId, repNameMap.get(repId) ?? null),
+                volume: data.volume,
+                payout: data.payout,
+                merchant_count: data.merchantIds.size,
+                pct: (data.payout / agencyTotalResidual) * 100,
+              }))
+              .filter(r => r.payout > 0)
+              .sort((a, b) => b.payout - a.payout)
+          );
+        } else {
+          setRepPerformance([]);
+        }
       } else {
         setRepPerformance([]);
       }

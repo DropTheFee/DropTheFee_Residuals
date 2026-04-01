@@ -61,20 +61,20 @@ export const parsePaysafeFile = async (
         const row1 = jsonData[1] || [];
 
         let residualColumn = config.residualColumn;
-        for (let i = 0; i < row0.length; i++) {
-          if (String(row0[i]).trim() === 'Residual') {
+        for (let i = 0; i < row1.length; i++) {
+          if (String(row1[i]).trim() === 'Residual') {
             residualColumn = i;
             break;
           }
         }
 
         let volumeColumns = config.volumeColumns;
-        for (let i = 0; i < row0.length; i++) {
-          if (String(row0[i]).trim() === 'SalesVolume') {
+        for (let i = 0; i < row1.length; i++) {
+          if (String(row1[i]).trim() === 'SalesVolume') {
             const detectedColumns: number[] = [];
             let j = i + 1;
-    while (j < row0.length) {
-      const cellVal = row0[j];
+    while (j < row1.length) {
+      const cellVal = row1[j];
       // Stop when we hit the next non-empty header
       if (cellVal !== null && cellVal !== undefined && String(cellVal).trim() !== '') {
         break;

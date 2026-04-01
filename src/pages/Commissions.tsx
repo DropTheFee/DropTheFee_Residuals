@@ -134,7 +134,10 @@ export default function Commissions() {
 
       if (error) throw error;
 
-      const repIds = [...new Set(results?.map(r => r.rep_user_id) || [])];
+      const EXCLUDED_USER_IDS = new Set(['5798d80d-bad6-4750-a489-988e2e1ef96e']);
+      const filteredResults = (results || []).filter(r => !EXCLUDED_USER_IDS.has(r.rep_user_id));
+
+      const repIds = [...new Set(filteredResults.map(r => r.rep_user_id))];
       const { data: repUsers } = await supabase
         .from('users')
         .select('id, full_name')
@@ -142,7 +145,7 @@ export default function Commissions() {
 
       const repMap = new Map<string, RepSummary>();
 
-      for (const result of results || []) {
+      for (const result of filteredResults) {
         const repId = result.rep_user_id;
         const repName = getRepDisplayName(repId, repUsers?.find(u => u.id === repId)?.full_name);
 
@@ -175,8 +178,7 @@ export default function Commissions() {
         summary.total_payout += result.rep_payout;
       }
 
-      const COMMISSIONS_EXCLUDED_IDS = new Set(['5798d80d-bad6-4750-a489-988e2e1ef96e']);
-      setRepSummaries(Array.from(repMap.values()).filter(r => !COMMISSIONS_EXCLUDED_IDS.has(r.rep_id)));
+      setRepSummaries(Array.from(repMap.values()));
 
       const period = periods.find(p => p.period_month === selectedPeriod);
       setCurrentPeriodStatus(period?.status || 'open');
@@ -421,8 +423,9 @@ export default function Commissions() {
     return <RepCommissionStatement repId={viewAsRepId} repName={viewAsRepName || ''} />;
   }
 
-  const totalVolume = repSummaries.reduce((sum, r) => sum + r.total_volume, 0);
-  const totalPayout = repSummaries.reduce((sum, r) => sum + r.total_payout, 0);
+  const visibleReps = repSummaries.filter(r => r.rep_id !== '5798d80d-bad6-4750-a489-988e2e1ef96e');
+  const totalVolume = visibleReps.reduce((sum, r) => sum + r.total_volume, 0);
+  const totalPayout = visibleReps.reduce((sum, r) => sum + r.total_payout, 0);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -510,7 +513,7 @@ export default function Commissions() {
       </div>
 
       <div className="space-y-4">
-        {repSummaries.map((rep) => (
+        {visibleReps.map((rep) => (
           <Card key={rep.rep_id} className="bg-slate-800/50 border-slate-700">
             <CardHeader
               className="cursor-pointer hover:bg-slate-700/30 transition-colors"
@@ -561,7 +564,7 @@ export default function Commissions() {
           </Card>
         ))}
 
-        {repSummaries.length === 0 && (
+        {visibleReps.length === 0 && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="py-8 text-center text-slate-400">
               No commission data for this period. Click "Calculate / Recalculate" to process commissions.

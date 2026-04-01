@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { getRepDisplayName } from "@/utils/displayNames";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,7 @@ export default function ManualExpenses({ selectedPeriod }: ManualExpensesProps) 
 
     const expensesWithRepName = (data || []).map((expense: any) => ({
       ...expense,
-      rep_name: expense.rep?.full_name || "Unknown",
+      rep_name: getRepDisplayName(expense.rep?.id, expense.rep?.full_name),
     }));
 
     setExpenses(expensesWithRepName);
@@ -276,7 +277,7 @@ export default function ManualExpenses({ selectedPeriod }: ManualExpensesProps) 
               <SelectContent>
                 {reps.map((rep) => (
                   <SelectItem key={rep.id} value={rep.id}>
-                    {rep.full_name || rep.email}
+                    {getRepDisplayName(rep.id, rep.full_name) || rep.email}
                   </SelectItem>
                 ))}
               </SelectContent>

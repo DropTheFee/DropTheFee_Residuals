@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { getRepDisplayName } from '@/utils/displayNames';
 import { Merchant } from '@/types';
 
 interface MerchantWithRep extends Merchant {
@@ -57,7 +58,9 @@ export default function MerchantsTable() {
 
       const merchantsWithRep = (data || []).map(m => ({
         ...m,
-        sales_rep_name: (m as any).sales_rep?.full_name || null
+        sales_rep_name: (m as any).sales_rep?.id
+          ? getRepDisplayName((m as any).sales_rep.id, (m as any).sales_rep.full_name)
+          : null
       }));
       setMerchants(merchantsWithRep);
 

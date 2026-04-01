@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { getRepDisplayName } from "@/utils/displayNames";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -300,7 +301,7 @@ export default function SuRJ() {
 
     setEntries((data || []).map((entry: any) => ({
       ...entry,
-      rep_name: entry.rep?.full_name || "Unknown",
+      rep_name: getRepDisplayName(entry.rep?.id, entry.rep?.full_name),
     })));
   };
 
@@ -613,7 +614,7 @@ export default function SuRJ() {
                   <SelectContent>
                     {reps.map((rep) => (
                       <SelectItem key={rep.id} value={rep.id}>
-                        {rep.full_name || rep.email}
+                        {getRepDisplayName(rep.id, rep.full_name) || rep.email}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -749,7 +750,7 @@ export default function SuRJ() {
                   <SelectContent>
                     {reps.map((rep) => (
                       <SelectItem key={rep.id} value={rep.id}>
-                        {rep.full_name || rep.email}
+                        {getRepDisplayName(rep.id, rep.full_name) || rep.email}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useViewAs } from '@/contexts/ViewAsContext';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getRepDisplayName } from '@/utils/displayNames';
 
 interface HeaderProps {
   user?: User;
@@ -41,7 +42,7 @@ export function Header({ user, onSignOut }: HeaderProps) {
 
       if (error) throw error;
 
-      setReps(data?.map(r => ({ id: r.id, name: r.full_name || 'Unnamed Rep' })) || []);
+      setReps(data?.map(r => ({ id: r.id, name: getRepDisplayName(r.id, r.full_name) })) || []);
     } catch (error) {
       console.error('Error loading reps:', error);
     }

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getRepDisplayName } from '@/utils/displayNames';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', {
@@ -13,13 +14,15 @@ const formatCurrency = (value: number) =>
 export const exportRepStatementToHTML = async (
   repName: string,
   periodMonth: string,
-  results: any[]
+  results: any[],
+  repId?: string
 ) => {
+  const displayName = repId ? getRepDisplayName(repId, repName) : repName;
   const date = new Date(periodMonth + 'T12:00:00');
   const month = date.toLocaleDateString('en-US', { month: 'long' });
   const year = date.getFullYear();
   const sanitizeName = (name: string) => name.replace(/[^a-zA-Z0-9]/g, '_');
-  const filename = `${sanitizeName(repName)}_${month}_${year}_Statement.pdf`;
+  const filename = `${sanitizeName(displayName)}_${month}_${year}_Statement.pdf`;
 
   const merchantResults = results.filter(
     (r) => r.source_type === 'merchant' && !r.override_from_user_id && r.rep_payout !== 0
@@ -77,7 +80,7 @@ export const exportRepStatementToHTML = async (
 
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text(repName, 40, 50);
+  doc.text(displayName, 40, 50);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text(`${month} ${year}`, 40, 68);

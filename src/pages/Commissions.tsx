@@ -7,6 +7,7 @@ import { calculateCommissions } from '@/utils/commissionEngine';
 import { toast } from 'sonner';
 import { Loader as Loader2, Lock, Clock as Unlock, TrendingUp, DollarSign, Download } from 'lucide-react';
 import { exportRepStatementToHTML } from '@/utils/csvExport';
+import { getRepDisplayName } from '@/utils/displayNames';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -143,7 +144,7 @@ export default function Commissions() {
 
       for (const result of results || []) {
         const repId = result.rep_user_id;
-        const repName = repUsers?.find(u => u.id === repId)?.full_name || 'Unknown';
+        const repName = getRepDisplayName(repId, repUsers?.find(u => u.id === repId)?.full_name);
 
         if (!repMap.has(repId)) {
           repMap.set(repId, {
@@ -403,7 +404,7 @@ export default function Commissions() {
         mid: r.merchants?.merchant_id || ''
       }));
 
-      const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID);
+      const filename = exportRepStatementToHTML(repName, selectedPeriod, resultsWithMID, repId);
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Error downloading statement:', error);

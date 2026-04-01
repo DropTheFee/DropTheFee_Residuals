@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/lib/supabase';
+import { getRepDisplayName } from '@/utils/displayNames';
 import { TrendingUp, DollarSign } from 'lucide-react';
 
 interface RepCommissionStatementProps {
@@ -126,7 +127,7 @@ export default function RepCommissionStatement({
           .in('id', overrideIds);
 
         const nameMap = new Map<string, string>();
-        users?.forEach(u => nameMap.set(u.id, u.full_name || 'Unknown Rep'));
+        users?.forEach(u => nameMap.set(u.id, getRepDisplayName(u.id, u.full_name)));
         setOverrideRepNames(nameMap);
       } else {
         setOverrideRepNames(new Map());

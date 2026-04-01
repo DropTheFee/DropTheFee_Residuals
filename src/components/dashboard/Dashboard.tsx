@@ -4,6 +4,7 @@ import { MetricCard } from './MetricCard';
 import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
+import { getRepDisplayName } from '@/utils/displayNames';
 import { startOfQuarter, startOfYear, format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -403,7 +404,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                   ) : (
                     agentRoster.map((agent) => (
                       <TableRow key={agent.id} className="border-slate-700 hover:bg-[#1a1a2e]">
-                        <TableCell className="text-slate-50">{agent.full_name || 'N/A'}</TableCell>
+                        <TableCell className="text-slate-50">{getRepDisplayName(agent.id, agent.full_name) || 'N/A'}</TableCell>
                         <TableCell className="text-slate-300">{agent.email}</TableCell>
                         <TableCell className="text-slate-300">{agent.sales_rep_id || 'N/A'}</TableCell>
                         <TableCell className="text-slate-300">

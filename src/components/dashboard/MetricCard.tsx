@@ -33,7 +33,7 @@ export function MetricCard({ title, value, subtitle, trend, icon }: MetricCardPr
             ) : (
               <TrendingDown className="h-3 w-3" />
             )}
-            <span>{Math.abs(trend.value)}% from last period</span>
+            <span>{trend.value.toFixed(1)}% from last period</span>
           </div>
         )}
       </CardContent>

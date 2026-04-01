@@ -218,7 +218,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         repResults.forEach((r: any) => {
           const existing = repMap.get(r.rep_user_id) || { volume: 0, payout: 0, merchantIds: new Set() };
           existing.payout += r.rep_payout || 0;
-          if (r.source_type === 'merchant') {
+          if (r.source_type === 'merchant' && r.rep_payout !== 0) {
             existing.volume += r.monthly_volume || 0;
             if (r.merchant_id) existing.merchantIds.add(r.merchant_id);
           }
@@ -565,7 +565,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={historicalData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <ComposedChart data={historicalData} margin={{ top: 4, right: 64, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis
                     dataKey="period"

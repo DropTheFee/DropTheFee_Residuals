@@ -306,30 +306,31 @@ export default function DynamicCSVUpload({
 
       for (const merchant of result.data) {
         const merchantPayload = {
-          id: crypto.randomUUID(),
           agency_id: agencyId,
           merchant_name: merchant.merchantName,
           merchant_id: merchant.merchantId?.toString().trim(),
           processor: selectedProcessor,
           dba_name: merchant.dbaName || merchant.merchantName,
           status: merchant.status || 'active',
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
-        console.log('Merchant upsert payload:', merchantPayload);
-
-        await supabase
+        const { error: merchantUpsertError } = await supabase
           .from('merchants')
-          .upsert(merchantPayload, {
-            onConflict: 'agency_id,merchant_id,processor',
-          });
+          .upsert(
+            { id: crypto.randomUUID(), created_at: new Date().toISOString(), ...merchantPayload },
+            { onConflict: 'agency_id,merchant_id,processor', ignoreDuplicates: false }
+          );
+
+        if (merchantUpsertError) {
+          console.error('Merchant upsert error for', merchant.merchantId, merchantUpsertError);
+        }
       }
 
       setProgress(80);
 
       for (const merchant of result.data) {
-        const { data: merchantRecord } = await supabase
+        const { data: merchantRecord, error: merchantSelectError } = await supabase
           .from('merchants')
           .select('id')
           .eq('agency_id', agencyId)
@@ -337,24 +338,36 @@ export default function DynamicCSVUpload({
           .eq('processor', selectedProcessor)
           .maybeSingle();
 
-        if (merchantRecord) {
-          const residualValue = parseFloat(merchant.residual as string) || 0;
-          const historyPayload = {
-            merchant_id: merchantRecord.id,
-            agency_id: agencyId,
-            report_date: periodMonth,
-            monthly_volume: parseFloat(merchant.volume as string) || 0,
-            monthly_income: residualValue,
-            rep_payout: merchant.repPayout ? parseFloat(merchant.repPayout as string) || 0 : 0,
-          };
+        if (merchantSelectError) {
+          console.error('Merchant select error for', merchant.merchantId, merchantSelectError);
+          continue;
+        }
 
-          console.log('Merchant history upsert payload:', historyPayload);
+        if (!merchantRecord) {
+          console.warn('No merchant record found for', merchant.merchantId, selectedProcessor, '— history skipped');
+          continue;
+        }
 
-          await supabase
-            .from('merchant_history')
-            .upsert(historyPayload, {
-              onConflict: 'merchant_id,report_date',
-            });
+        const residualValue = parseFloat(merchant.residual as string) || 0;
+        const historyPayload = {
+          merchant_id: merchantRecord.id,
+          agency_id: agencyId,
+          report_date: periodMonth,
+          monthly_volume: parseFloat(merchant.volume as string) || 0,
+          monthly_income: residualValue,
+          rep_payout: merchant.repPayout ? parseFloat(merchant.repPayout as string) || 0 : 0,
+        };
+
+        console.log('Merchant history upsert payload:', historyPayload);
+
+        const { error: historyUpsertError } = await supabase
+          .from('merchant_history')
+          .upsert(historyPayload, {
+            onConflict: 'merchant_id,report_date',
+          });
+
+        if (historyUpsertError) {
+          console.error('History upsert error for', merchant.merchantId, historyUpsertError);
         }
       }
 

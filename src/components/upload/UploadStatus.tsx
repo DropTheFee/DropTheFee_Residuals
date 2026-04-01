@@ -75,6 +75,8 @@ export default function UploadStatus({ selectedMonth, selectedYear, refreshTrigg
       const month = String(selectedMonth).padStart(2, '0');
       const periodMonth = `${selectedYear}-${month}-01`;
 
+      console.log('[UploadStatus] querying merchant_history', { agencyId, periodMonth, refreshTrigger });
+
       const { data: historyData, error: historyError } = await supabase
         .from('merchant_history')
         .select(`
@@ -88,16 +90,23 @@ export default function UploadStatus({ selectedMonth, selectedYear, refreshTrigg
 
       if (historyError) throw historyError;
 
+      console.log('[UploadStatus] raw historyData count:', historyData?.length, 'sample:', historyData?.[0]);
+
       const processorMap = new Map<string, { count: number; total: number }>();
 
       historyData?.forEach((record: any) => {
-        const processor = record.merchants?.processor || 'Unknown';
+        // merchants may be a single object OR an array depending on PostgREST FK resolution
+        const merchantsData = Array.isArray(record.merchants) ? record.merchants[0] : record.merchants;
+        const processor = merchantsData?.processor || 'Unknown';
         const existing = processorMap.get(processor) || { count: 0, total: 0 };
         processorMap.set(processor, {
           count: existing.count + 1,
-          total: existing.total + (record.monthly_income || 0),
+          // Use Number() to safely coerce — Supabase returns numeric columns as strings
+          total: existing.total + (Number(record.monthly_income) || 0),
         });
       });
+
+      console.log('[UploadStatus] processorMap:', Object.fromEntries(processorMap));
 
       const knownProcessors = ['Paysafe', 'PCS', 'Link2Pay', 'Payarc'];
       const processorStatusList: ProcessorStatus[] = knownProcessors.map(processor => {

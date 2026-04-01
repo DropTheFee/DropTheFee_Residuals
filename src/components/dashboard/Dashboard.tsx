@@ -213,7 +213,13 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         .eq('source_type', 'merchant')
         .neq('rep_payout', 0);
 
-      console.log('[Dashboard] merchantCountRows:', merchantCountRows, 'error:', merchantCountError);
+      console.log('[Dashboard] merchantCount full response:', {
+        data: merchantCountRows,
+        error: merchantCountError,
+        rowCount: merchantCountRows?.length ?? null,
+        periodMonth: latestPeriod.report_date,
+        agencyId: profile.agency_id,
+      });
 
       const repMerchantCountMap = new Map<string, Set<string>>();
       merchantCountRows?.forEach((r: any) => {

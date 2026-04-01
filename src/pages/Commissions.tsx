@@ -175,7 +175,8 @@ export default function Commissions() {
         summary.total_payout += result.rep_payout;
       }
 
-      setRepSummaries(Array.from(repMap.values()));
+      const COMMISSIONS_EXCLUDED_IDS = new Set(['5798d80d-bad6-4750-a489-988e2e1ef96e']);
+      setRepSummaries(Array.from(repMap.values()).filter(r => !COMMISSIONS_EXCLUDED_IDS.has(r.rep_id)));
 
       const period = periods.find(p => p.period_month === selectedPeriod);
       setCurrentPeriodStatus(period?.status || 'open');

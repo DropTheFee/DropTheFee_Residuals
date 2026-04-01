@@ -483,6 +483,10 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
     const jordanId = repContracts?.find(c => c.contract_type === 'sae_override')?.user_id;
 
+    console.log('[commissionEngine] repTotals:', Object.fromEntries(repTotals));
+    console.log('[commissionEngine] repContractsMap:', Object.fromEntries(repContractsMap));
+    console.log('[commissionEngine] jordanId:', jordanId);
+
     for (const [repId, total] of repTotals.entries()) {
       const contractType = repContractsMap.get(repId);
       if (total < 0 && contractType === 'jr_ae' && jordanId) {

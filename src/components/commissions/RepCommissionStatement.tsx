@@ -25,7 +25,7 @@ interface CommissionResult {
   rep_payout: number;
   source_type: string;
   contract_type: string;
-  override_from_rep_user_id: string | null;
+  override_from_user_id: string | null;
   mid?: string;
   payout_date?: string;
 }
@@ -42,6 +42,7 @@ export default function RepCommissionStatement({
   const [results, setResults] = useState<CommissionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string>(propAgencyId || '');
+  const [overrideRepNames, setOverrideRepNames] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadPeriods();
@@ -108,6 +109,28 @@ export default function RepCommissionStatement({
       if (error) throw error;
 
       setResults(data || []);
+
+      // Fetch display names for any Jr AE reps referenced in SAE override debit rows
+      const overrideIds = [
+        ...new Set(
+          (data || [])
+            .filter(r => r.source_type === 'expense' && r.override_from_user_id)
+            .map(r => r.override_from_user_id as string)
+        ),
+      ];
+
+      if (overrideIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, full_name')
+          .in('id', overrideIds);
+
+        const nameMap = new Map<string, string>();
+        users?.forEach(u => nameMap.set(u.id, u.full_name || 'Unknown Rep'));
+        setOverrideRepNames(nameMap);
+      } else {
+        setOverrideRepNames(new Map());
+      }
     } catch (error) {
       console.error('Error loading commission results:', error);
     }
@@ -127,21 +150,23 @@ export default function RepCommissionStatement({
     }).format(value);
   };
 
-  const merchantResults = results.filter(r => r.source_type === 'merchant' && !r.override_from_rep_user_id);
-  const overrideResults = results.filter(r => r.source_type === 'merchant' && r.override_from_rep_user_id);
-  const surjResults = results.filter(r => r.source_type === 'surj');
-  const nabResults = results.filter(r => r.source_type === 'nab');
-  const expenseResults = results.filter(r => r.source_type === 'expense' && r.contract_type === 'expense');
-  const manualResults = results.filter(r => r.source_type === 'manual');
+  // Section filters per spec
+  const merchantResults      = results.filter(r => r.source_type === 'merchant' && !r.override_from_user_id);
+  const saeOverrideResults   = results.filter(r => r.source_type === 'expense'  &&  r.override_from_user_id);
+  const nabResults           = results.filter(r => r.source_type === 'nab');
+  const surjResults          = results.filter(r => r.source_type === 'surj');
+  const manualExpenseResults = results.filter(r => r.source_type === 'expense'  && !r.override_from_user_id);
 
-  const totalVolume = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
-  const tierPercentage = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
-  const totalPayout = results.reduce((sum, r) => {
-    if (r.source_type === 'manual') {
-      return sum + r.gross_residual;
-    }
-    return sum + r.rep_payout;
-  }, 0);
+  const totalVolume     = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
+  const tierPercentage  = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
+
+  // Total sums only the five defined sections
+  const totalPayout =
+    merchantResults.reduce((sum, r)      => sum + r.rep_payout, 0) +
+    saeOverrideResults.reduce((sum, r)   => sum + r.rep_payout, 0) +
+    nabResults.reduce((sum, r)           => sum + r.rep_payout, 0) +
+    surjResults.reduce((sum, r)          => sum + r.rep_payout, 0) +
+    manualExpenseResults.reduce((sum, r) => sum + r.rep_payout, 0);
 
   if (loading) {
     return <div className="text-center py-8 text-slate-400">Loading...</div>;
@@ -206,51 +231,14 @@ export default function RepCommissionStatement({
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(totalPayout)}</div>
+            <div className={`text-2xl font-bold ${totalPayout < 0 ? 'text-red-400' : 'text-white'}`}>
+              {formatCurrency(totalPayout)}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {nabResults.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">EPI New Account Bonus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">MID</TableHead>
-                  <TableHead className="text-slate-300">DBA</TableHead>
-                  <TableHead className="text-slate-300">Payout Date</TableHead>
-                  <TableHead className="text-right text-slate-300">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {nabResults.map((result) => (
-                  <TableRow key={result.id} className="border-slate-700">
-                    <TableCell className="text-slate-300">{result.mid || 'N/A'}</TableCell>
-                    <TableCell className="text-white">{result.merchant_name}</TableCell>
-                    <TableCell className="text-slate-300">
-                      {result.payout_date ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-green-400">
-                      {formatCurrency(result.rep_payout)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">NAB Bonus Subtotal</TableCell>
-                  <TableCell className="text-right font-bold text-green-400">
-                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Merchant Commissions — source_type = 'merchant', no override */}
       {merchantResults.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
@@ -301,58 +289,91 @@ export default function RepCommissionStatement({
         </Card>
       )}
 
-      {overrideResults.length > 0 && (() => {
-        const traineeIds = [...new Set(overrideResults.map(r => r.override_from_rep_user_id))];
-        return traineeIds.map(traineeId => {
-          const traineeRows = overrideResults.filter(r => r.override_from_rep_user_id === traineeId);
-          const traineeSubtotal = traineeRows.reduce((sum, r) => sum + r.rep_payout, 0);
-          const traineeName = traineeRows[0]?.merchant_name ? null : null;
-          return (
-            <Card key={traineeId} className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">Trainee Overrides</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-slate-700">
-                      <TableHead className="text-slate-300">Merchant Name</TableHead>
-                      <TableHead className="text-slate-300">Processor</TableHead>
-                      <TableHead className="text-right text-slate-300">Volume</TableHead>
-                      <TableHead className="text-right text-slate-300">Net Residual</TableHead>
-                      <TableHead className="text-right text-slate-300">Override %</TableHead>
-                      <TableHead className="text-right text-slate-300">Payout</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {traineeRows.map((result) => (
-                      <TableRow key={result.id} className="border-slate-700">
-                        <TableCell className="text-white">{result.merchant_name}</TableCell>
-                        <TableCell className="text-slate-300">{result.processor || 'N/A'}</TableCell>
-                        <TableCell className="text-right text-slate-300">{formatCurrency(result.monthly_volume)}</TableCell>
-                        <TableCell className={`text-right ${result.net_residual < 0 ? 'text-red-400' : 'text-slate-300'}`}>
-                          {formatCurrency(result.net_residual)}
-                        </TableCell>
-                        <TableCell className="text-right text-slate-300">{result.split_pct}%</TableCell>
-                        <TableCell className={`text-right font-medium ${result.rep_payout < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                          {formatCurrency(result.rep_payout)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="border-slate-700 bg-slate-700/30">
-                      <TableCell colSpan={5} className="text-right font-semibold text-slate-300">Trainee Overrides Subtotal</TableCell>
-                      <TableCell className={`text-right font-bold ${traineeSubtotal < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                        {formatCurrency(traineeSubtotal)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          );
-        });
-      })()}
+      {/* SAE Override — source_type = 'expense', override_from_user_id present (Jr AE negative balance debit) */}
+      {saeOverrideResults.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">SAE Override</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Rep</TableHead>
+                  <TableHead className="text-slate-300">Description</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {saeOverrideResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-white">
+                      {result.override_from_user_id
+                        ? (overrideRepNames.get(result.override_from_user_id) || result.override_from_user_id)
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-slate-300">{result.merchant_name}</TableCell>
+                    <TableCell className="text-right font-medium text-red-400">
+                      {formatCurrency(result.rep_payout)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={2} className="text-right font-semibold text-slate-300">SAE Override Subtotal</TableCell>
+                  <TableCell className="text-right font-bold text-red-400">
+                    {formatCurrency(saeOverrideResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* EPI New Account Bonus — source_type = 'nab' */}
+      {nabResults.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">EPI New Account Bonus</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">MID</TableHead>
+                  <TableHead className="text-slate-300">DBA</TableHead>
+                  <TableHead className="text-slate-300">Payout Date</TableHead>
+                  <TableHead className="text-right text-slate-300">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nabResults.map((result) => (
+                  <TableRow key={result.id} className="border-slate-700">
+                    <TableCell className="text-slate-300">{result.mid || 'N/A'}</TableCell>
+                    <TableCell className="text-white">{result.merchant_name}</TableCell>
+                    <TableCell className="text-slate-300">
+                      {result.payout_date
+                        ? new Date(result.payout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-400">
+                      {formatCurrency(result.rep_payout)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-slate-700 bg-slate-700/30">
+                  <TableCell colSpan={3} className="text-right font-semibold text-slate-300">NAB Bonus Subtotal</TableCell>
+                  <TableCell className="text-right font-bold text-green-400">
+                    {formatCurrency(nabResults.reduce((sum, r) => sum + r.rep_payout, 0))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* SüRJ Platform — source_type = 'surj' */}
       {surjResults.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
@@ -397,10 +418,11 @@ export default function RepCommissionStatement({
         </Card>
       )}
 
-      {expenseResults.length > 0 && (
+      {/* Manual Expenses — source_type = 'expense', no override_from_user_id */}
+      {manualExpenseResults.length > 0 && (
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Rep Deductions</CardTitle>
+            <CardTitle className="text-white">Manual Expenses</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -411,52 +433,18 @@ export default function RepCommissionStatement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenseResults.map((result) => (
+                {manualExpenseResults.map((result) => (
                   <TableRow key={result.id} className="border-slate-700">
                     <TableCell className="text-white">{result.merchant_name}</TableCell>
                     <TableCell className="text-right font-medium text-red-400">
-                      {formatCurrency(result.expenses)}
+                      {formatCurrency(result.rep_payout)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell className="text-right font-semibold text-slate-300">Total Deductions</TableCell>
+                  <TableCell className="text-right font-semibold text-slate-300">Manual Expenses Subtotal</TableCell>
                   <TableCell className="text-right font-bold text-red-400">
-                    {formatCurrency(expenseResults.reduce((sum, r) => sum + r.expenses, 0))}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {manualResults.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">Manual Adjustments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700">
-                  <TableHead className="text-slate-300">Description</TableHead>
-                  <TableHead className="text-right text-slate-300">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {manualResults.map((result) => (
-                  <TableRow key={result.id} className="border-slate-700">
-                    <TableCell className="text-white">{result.merchant_name}</TableCell>
-                    <TableCell className={`text-right font-medium ${result.gross_residual < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {formatCurrency(result.gross_residual)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="border-slate-700 bg-slate-700/30">
-                  <TableCell className="text-right font-semibold text-slate-300">Manual Adjustments Subtotal</TableCell>
-                  <TableCell className={`text-right font-bold ${manualResults.reduce((sum, r) => sum + r.gross_residual, 0) < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {formatCurrency(manualResults.reduce((sum, r) => sum + r.gross_residual, 0))}
+                    {formatCurrency(manualExpenseResults.reduce((sum, r) => sum + r.rep_payout, 0))}
                   </TableCell>
                 </TableRow>
               </TableBody>

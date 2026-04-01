@@ -33,12 +33,14 @@ interface DynamicCSVUploadProps {
   selectedMonth: number;
   selectedYear: number;
   onPeriodChange: (month: number, year: number) => void;
+  onUploadComplete?: () => void;
 }
 
 export default function DynamicCSVUpload({
   selectedMonth,
   selectedYear,
-  onPeriodChange
+  onPeriodChange,
+  onUploadComplete,
 }: DynamicCSVUploadProps) {
   const navigate = useNavigate();
   const [processors, setProcessors] = useState<ProcessorMapping[]>([]);
@@ -366,6 +368,8 @@ export default function DynamicCSVUpload({
         `Total Volume: $${totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
         `Total Residual: $${totalResidual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       );
+
+      onUploadComplete?.();
 
       setFile(null);
       setSelectedProcessor('');

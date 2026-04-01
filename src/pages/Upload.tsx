@@ -29,6 +29,7 @@ export default function Upload() {
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<number>(0);
   const [isFetchingVivid, setIsFetchingVivid] = useState(false);
+  const [uploadRefreshTrigger, setUploadRefreshTrigger] = useState(0);
 
   useEffect(() => {
     loadAgencyAndPeriods();
@@ -228,7 +229,7 @@ const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth()
 
       <PendingMappings />
 
-      <UploadStatus selectedMonth={selectedMonth} selectedYear={selectedYear} />
+      <UploadStatus selectedMonth={selectedMonth} selectedYear={selectedYear} refreshTrigger={uploadRefreshTrigger} />
 
       <DynamicCSVUpload
         selectedMonth={selectedMonth}
@@ -237,6 +238,7 @@ const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth()
           setSelectedMonth(month);
           setSelectedYear(year);
         }}
+        onUploadComplete={() => setUploadRefreshTrigger(n => n + 1)}
       />
 
       <Card className="bg-slate-800/50 border-slate-700">

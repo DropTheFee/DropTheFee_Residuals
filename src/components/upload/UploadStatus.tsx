@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 interface UploadStatusProps {
   selectedMonth: number;
   selectedYear: number;
+  refreshTrigger?: number;
 }
 
 interface ProcessorStatus {
@@ -30,7 +31,7 @@ interface NABStatus {
   status: 'uploaded' | 'missing';
 }
 
-export default function UploadStatus({ selectedMonth, selectedYear }: UploadStatusProps) {
+export default function UploadStatus({ selectedMonth, selectedYear, refreshTrigger }: UploadStatusProps) {
   const [processorStatuses, setProcessorStatuses] = useState<ProcessorStatus[]>([]);
   const [expenseStatuses, setExpenseStatuses] = useState<ExpenseStatus[]>([]);
   const [nabStatus, setNabStatus] = useState<NABStatus | null>(null);
@@ -45,7 +46,7 @@ export default function UploadStatus({ selectedMonth, selectedYear }: UploadStat
     if (agencyId) {
       loadUploadStatus();
     }
-  }, [agencyId, selectedMonth, selectedYear]);
+  }, [agencyId, selectedMonth, selectedYear, refreshTrigger]);
 
   const fetchUserAgency = async () => {
     try {

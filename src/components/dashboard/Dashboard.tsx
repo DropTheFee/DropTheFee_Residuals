@@ -21,6 +21,7 @@ interface AgentRosterRecord {
   email: string;
   sales_rep_id: string | null;
   contract_types: string[];
+  isActive: boolean;
 }
 
 export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }: DashboardProps) {
@@ -215,11 +216,37 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       }
 
       if (users && contracts) {
+        const agencyId = 'ed9c6a52-c619-4d92-82f2-2b9cb4b35622';
+
+        // Get 2 most recent commission periods for this agency
+        const { data: recentPeriods } = await supabase
+          .from('commission_periods')
+          .select('period_month')
+          .eq('agency_id', agencyId)
+          .order('period_month', { ascending: false })
+          .limit(2);
+
+        const activeRepIds = new Set<string>();
+
+        if (recentPeriods && recentPeriods.length > 0) {
+          const periodMonths = recentPeriods.map(p => p.period_month);
+
+          const { data: activeRows } = await supabase
+            .from('commission_results')
+            .select('rep_user_id')
+            .eq('agency_id', agencyId)
+            .in('period_month', periodMonths)
+            .gt('rep_payout', 0);
+
+          activeRows?.forEach(r => activeRepIds.add(r.rep_user_id));
+        }
+
         const result = users.map(user => ({
           ...user,
           contract_types: contracts
             .filter(c => c.user_id === user.id)
-            .map(c => c.contract_type)
+            .map(c => c.contract_type),
+          isActive: activeRepIds.has(user.id),
         }));
         setAgentRoster(result);
       }
@@ -412,7 +439,13 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                             ? agent.contract_types.map(formatContractType).join(', ')
                             : 'N/A'}
                         </TableCell>
-                        <TableCell className="text-slate-400">Dormant</TableCell>
+                        <TableCell>
+                          {agent.isActive ? (
+                            <span className="text-green-400">Active</span>
+                          ) : (
+                            <span className="text-slate-400">Dormant</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

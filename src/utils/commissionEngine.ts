@@ -444,7 +444,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
     const { data: manualExpenses } = await supabase
       .from('expenses')
-      .select('rep_user_id, description, amount')
+      .select('user_id, description, amount')
       .eq('agency_id', agencyId)
       .eq('period_month', periodMonth.substring(0, 10))
       .eq('expense_type', 'manual');
@@ -453,7 +453,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       commissionResults.push({
         agency_id: agencyId,
         period_month: periodMonth,
-        rep_user_id: expense.rep_user_id,
+        rep_user_id: expense.user_id,
         merchant_id: null,
         contract_type: 'expense',
         source_type: 'expense',

@@ -138,7 +138,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ViewAsProvider>
-          <Toaster />
+          <Toaster position="top-right" />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={!authUser ? <Index /> : <Navigate to="/dashboard" replace />} />

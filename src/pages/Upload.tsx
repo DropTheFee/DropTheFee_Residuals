@@ -132,12 +132,12 @@ export default function Upload() {
           totalPages = data._meta.pageCount;
         }
 
-        if (data.data && Array.isArray(data.data)) {
-          const filteredResults = data.data.filter((item: any) =>
-            item.date && item.date.startsWith(periodPrefix)
-          );
-          allResults = [...allResults, ...filteredResults];
-        }
+        if (data.items && Array.isArray(data.items)) {
+  const filteredResults = data.items.filter((item: any) =>
+    item.date && item.date.startsWith(periodPrefix)
+  );
+  allResults = [...allResults, ...filteredResults];
+}
 
         currentPage++;
       }
@@ -146,7 +146,7 @@ export default function Upload() {
       let totalCount = allResults.length;
 
       for (const result of allResults) {
-        const merchantMID = String(result.merchant?.MID || '');
+        const merchantMID = String(result.mid || '');
         if (!merchantMID) continue;
 
         const { data: merchantData } = await supabase

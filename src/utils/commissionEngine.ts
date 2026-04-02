@@ -409,8 +409,13 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       const serviceKey = entry.surj_service_id || `merchant:${entry.merchant_name}:${entry.rep_user_id}`;
 
       if (!serviceGroups.has(serviceKey)) {
-        const serviceName = (entry as any).surj_services?.service_type || 'Unknown Service';
-        const clientName = (entry as any).surj_services?.surj_clients?.company_name || entry.merchant_name;
+        // surj_services may be a single object or an array depending on PostgREST FK resolution
+        const svc = Array.isArray((entry as any).surj_services)
+          ? (entry as any).surj_services[0]
+          : (entry as any).surj_services;
+        const serviceName = svc?.service_type || 'Unknown Service';
+        const svcClient = Array.isArray(svc?.surj_clients) ? svc.surj_clients[0] : svc?.surj_clients;
+        const clientName = svcClient?.company_name || entry.merchant_name;
 
         serviceGroups.set(serviceKey, {
           rep_user_id: entry.rep_user_id,

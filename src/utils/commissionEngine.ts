@@ -330,26 +330,72 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       }
     }
 
-    const periodDate = new Date(periodMonth + 'T12:00:00Z');
-    const { data: surjEntries } = await supabase
-      .from('surj_entries')
-      .select(`
-        rep_user_id,
-        merchant_name,
-        entry_type,
-        amount,
-        surj_service_id,
-        surj_services (
-          id,
-          service_type,
-          surj_clients (
-            company_name
-          )
-        )
-      `)
-      .eq('agency_id', agencyId)
-      .eq('period_month', periodMonth);
+    // Query surj_entries — try both date formats since the SuRJ page stores
+    // period_month as 'YYYY-MM-DDT12:00:00' while commissions uses 'YYYY-MM-DD'
+    const surjPeriodDate = periodMonth.includes('T') ? periodMonth : periodMonth + 'T12:00:00';
+    const surjPeriodDateAlt = periodMonth.substring(0, 10);
 
+    const [{ data: surjEntriesPrimary }, { data: surjEntriesAlt }] = await Promise.all([
+      supabase
+        .from('surj_entries')
+        .select(`
+          rep_user_id,
+          merchant_name,
+          entry_type,
+          amount,
+          surj_service_id,
+          surj_services (
+            id,
+            service_type,
+            surj_clients (
+              company_name
+            )
+          )
+        `)
+        .eq('agency_id', agencyId)
+        .eq('period_month', surjPeriodDate),
+      supabase
+        .from('surj_entries')
+        .select(`
+          rep_user_id,
+          merchant_name,
+          entry_type,
+          amount,
+          surj_service_id,
+          surj_services (
+            id,
+            service_type,
+            surj_clients (
+              company_name
+            )
+          )
+        `)
+        .eq('agency_id', agencyId)
+        .eq('period_month', surjPeriodDateAlt),
+    ]);
+
+    // Deduplicate by combining both result sets (use a Set of stringified entries)
+    const seenIds = new Set<string>();
+    const surjEntries: any[] = [];
+    for (const entry of [...(surjEntriesPrimary || []), ...(surjEntriesAlt || [])]) {
+      const key = `${entry.rep_user_id}-${entry.surj_service_id}-${entry.entry_type}-${entry.amount}`;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        surjEntries.push(entry);
+      }
+    }
+
+    console.log('[commissionEngine] surjEntries count:', surjEntries.length,
+      'entries:', surjEntries.map(e => ({
+        merchant: e.merchant_name,
+        type: e.entry_type,
+        amount: e.amount,
+        serviceId: e.surj_service_id,
+      }))
+    );
+
+    // Group by surj_service_id. Each unique service ID is a separate line item.
+    // Entries without surj_service_id fall back to merchant_name grouping.
     const serviceGroups = new Map<string, {
       rep_user_id: string;
       service_name: string;
@@ -358,10 +404,9 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       expenses: number;
     }>();
 
-    for (const entry of surjEntries || []) {
-      if (!entry.surj_service_id) continue;
-
-      const serviceKey = entry.surj_service_id;
+    for (const entry of surjEntries) {
+      // Use surj_service_id as primary key; fall back to merchant_name for entries without one
+      const serviceKey = entry.surj_service_id || `merchant:${entry.merchant_name}:${entry.rep_user_id}`;
 
       if (!serviceGroups.has(serviceKey)) {
         const serviceName = (entry as any).surj_services?.service_type || 'Unknown Service';
@@ -384,6 +429,10 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         group.income += entry.amount;
       }
     }
+
+    console.log('[commissionEngine] surj serviceGroups:', Array.from(serviceGroups.entries()).map(([k, g]) => ({
+      key: k, client: g.client_name, service: g.service_name, income: g.income, expenses: g.expenses,
+    })));
 
     for (const [serviceId, group] of serviceGroups.entries()) {
       const netRevenue = group.income - group.expenses;

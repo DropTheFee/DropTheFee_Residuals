@@ -439,9 +439,39 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       key: k, client: g.client_name, service: g.service_name, income: g.income, expenses: g.expenses,
     })));
 
+    // Also look up service_type directly from surj_services as a fallback,
+    // in case the nested join didn't resolve
+    const allServiceIds = [...new Set(
+      surjEntries.map((e: any) => e.surj_service_id).filter(Boolean)
+    )];
+    const serviceTypeMap = new Map<string, string>();
+    if (allServiceIds.length > 0) {
+      const { data: svcRows } = await supabase
+        .from('surj_services')
+        .select('id, service_type, surj_clients(company_name)')
+        .in('id', allServiceIds);
+      svcRows?.forEach((s: any) => {
+        serviceTypeMap.set(s.id, s.service_type || 'Unknown Service');
+        // Also patch group names if they were Unknown
+        const group = serviceGroups.get(s.id);
+        if (group) {
+          if (group.service_name === 'Unknown Service' && s.service_type) {
+            group.service_name = s.service_type;
+          }
+          const client = Array.isArray(s.surj_clients) ? s.surj_clients[0] : s.surj_clients;
+          if (client?.company_name && group.client_name === group.client_name) {
+            group.client_name = client.company_name;
+          }
+        }
+      });
+    }
+
     for (const [serviceId, group] of serviceGroups.entries()) {
       const netRevenue = group.income - group.expenses;
       const commission = netRevenue > 0 ? netRevenue * 0.5 : 0;
+      const merchantLabel = `${group.client_name} - ${group.service_name}`;
+
+      console.log('[commissionEngine] surj row:', { serviceId, merchantLabel, income: group.income, expenses: group.expenses, netRevenue, commission });
 
       commissionResults.push({
         agency_id: agencyId,
@@ -450,7 +480,7 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
         merchant_id: null,
         contract_type: 'surj',
         source_type: 'surj',
-        merchant_name: `${group.client_name} - ${group.service_name}`,
+        merchant_name: merchantLabel,
         processor: null,
         volume: 0,
         monthly_volume: 0,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { User, DashboardData, PeriodStats } from '@/types';
 import { MetricCard } from './MetricCard';
-import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Activity, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { getRepDisplayName } from '@/utils/displayNames';
@@ -264,14 +264,16 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       // ── KPI stats ────────────────────────────────────────────────────────
       const totalVolume   = currentPeriodData?.reduce((s, r) => s + (r.monthly_volume || 0), 0) || 0;
       const totalResidual = currentPeriodData?.reduce((s, r) => s + (Number(r.monthly_income) || 0), 0) || 0;
-      const liveMerchants = currentPeriodData?.filter(r => (r.monthly_volume || 0) > 0).length || 0;
+      const liveMerchants = new Set(currentPeriodData?.filter(r => (r.monthly_volume || 0) > 0).map(r => r.merchant_id)).size || 0;
+      const openAccounts  = new Set(currentPeriodData?.filter(r => (Number(r.monthly_income) || 0) !== 0).map(r => r.merchant_id)).size || 0;
       const merchantCount = currentPeriodData?.length || 0;
       const avgResidual   = liveMerchants > 0 ? totalResidual / liveMerchants : 0;
 
       const prevTotalVolume   = prevPeriodData?.reduce((s, r) => s + (r.monthly_volume || 0), 0) || 0;
       const prevTotalResidual = prevPeriodData?.reduce((s, r) => s + (Number(r.monthly_income) || 0), 0) || 0;
       const prevMerchantCount = prevPeriodData?.length || 0;
-      const prevLiveMerchants = prevPeriodData?.filter(r => (r.monthly_volume || 0) > 0).length || 0;
+      const prevLiveMerchants = new Set(prevPeriodData?.filter(r => (r.monthly_volume || 0) > 0).map(r => r.merchant_id)).size || 0;
+      const prevOpenAccounts  = new Set(prevPeriodData?.filter(r => (Number(r.monthly_income) || 0) !== 0).map(r => r.merchant_id)).size || 0;
       const prevAvgResidual   = prevLiveMerchants > 0 ? prevTotalResidual / prevLiveMerchants : 0;
 
       const quarterVolume        = quarterData?.reduce((s, r) => s + (r.monthly_volume || 0), 0) || 0;
@@ -292,6 +294,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         liveVolume: totalVolume,
         liveResidual: totalResidual,
         liveMerchantCount: liveMerchants,
+        openAccountCount: openAccounts,
       };
 
       const lastMonth: PeriodStats = {
@@ -303,7 +306,8 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         averageResidualPercentage: prevTotalVolume > 0 ? (prevTotalResidual / prevTotalVolume) * 100 : 0,
         liveVolume: prevTotalVolume,
         liveResidual: prevTotalResidual,
-        liveMerchantCount: prevMerchantCount,
+        liveMerchantCount: prevLiveMerchants,
+        openAccountCount: prevOpenAccounts,
       };
 
       const fiscalQuarter: PeriodStats = {
@@ -316,6 +320,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         liveVolume: quarterVolume,
         liveResidual: quarterResidual,
         liveMerchantCount: quarterMerchantCount,
+        openAccountCount: 0,
       };
 
       const ytd: PeriodStats = {
@@ -328,6 +333,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         liveVolume: ytdVolume,
         liveResidual: ytdResidual,
         liveMerchantCount: ytdMerchantCount,
+        openAccountCount: 0,
       };
 
       setDashboardData({ currentMonth, lastMonth, fiscalQuarter, ytd, lastYear: ytd });
@@ -498,7 +504,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">
           {currentMonth.period}
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <MetricCard
             title="Total Volume"
             value={formatCurrency(currentMonth.totalVolume)}
@@ -516,9 +522,16 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           <MetricCard
             title="Live Merchants"
             value={currentMonth.liveMerchantCount.toString()}
-            subtitle={formatCurrency(currentMonth.liveVolume)}
+            subtitle="Processing volume this period"
             trend={calculateTrend(currentMonth.liveMerchantCount, lastMonth.liveMerchantCount) || undefined}
             icon={<Users className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Open Accounts"
+            value={currentMonth.openAccountCount.toString()}
+            subtitle="Earning residual this period"
+            trend={calculateTrend(currentMonth.openAccountCount, lastMonth.openAccountCount) || undefined}
+            icon={<BookOpen className="h-4 w-4" />}
           />
           <MetricCard
             title="Avg Residual / Merchant"

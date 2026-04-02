@@ -130,6 +130,7 @@ export interface PeriodStats {
   liveVolume: number;
   liveResidual: number;
   liveMerchantCount: number;
+  openAccountCount: number;
 }
 
 export interface DashboardData {

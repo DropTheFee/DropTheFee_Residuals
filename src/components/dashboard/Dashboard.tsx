@@ -251,7 +251,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
                 merchant_count: data.merchantNames.size,
                 pct: (data.payout / agencyTotalResidual) * 100,
               }))
-              .filter(r => r.payout > 0)
+              .filter(r => r.payout > 0 && r.rep_id !== '5798d80d-bad6-4750-a489-988e2e1ef96e')
               .sort((a, b) => b.payout - a.payout)
           );
         } else {

@@ -109,6 +109,9 @@ export default function RepCommissionStatement({
 
       if (error) throw error;
 
+      const surjRows = (data || []).filter((r: any) => r.source_type === 'surj');
+      console.log('[RepCommissionStatement] repId:', repId, 'period:', selectedPeriod, 'total rows:', data?.length, 'surj rows:', surjRows.length, surjRows.map((r: any) => ({ merchant_name: r.merchant_name, gross_residual: r.gross_residual, expenses: r.expenses, net_residual: r.net_residual, rep_payout: r.rep_payout })));
+
       setResults(data || []);
 
       // Fetch display names for any Jr AE reps referenced in SAE override debit rows

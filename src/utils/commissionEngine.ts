@@ -595,16 +595,45 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
       }
     }
 
-    if (commissionResults.length > 0) {
+    // Split surj rows out and insert them separately to prevent silent loss in bulk insert
+    const surjRows = commissionResults.filter(r => r.source_type === 'surj');
+    const otherRows = commissionResults.filter(r => r.source_type !== 'surj');
+
+    console.log('[commissionEngine] inserting', otherRows.length, 'non-surj rows and', surjRows.length, 'surj rows separately');
+
+    if (otherRows.length > 0) {
       const { error: insertError } = await supabase
         .from('commission_results')
-        .insert(commissionResults);
+        .insert(otherRows);
 
       if (insertError) {
-        console.error('Insert error:', JSON.stringify(insertError, null, 2));
+        console.error('Insert error (non-surj):', JSON.stringify(insertError, null, 2));
         throw insertError;
       }
     }
+
+    // Insert each surj row individually so we can see exactly which one fails
+    for (const surjRow of surjRows) {
+      console.log('[commissionEngine] inserting surj row:', surjRow.merchant_name);
+      const { error: surjInsertError } = await supabase
+        .from('commission_results')
+        .insert(surjRow);
+
+      if (surjInsertError) {
+        console.error('[commissionEngine] SURJ INSERT FAILED for:', surjRow.merchant_name, JSON.stringify(surjInsertError, null, 2));
+      } else {
+        console.log('[commissionEngine] surj row inserted OK:', surjRow.merchant_name);
+      }
+    }
+
+    // Verify what actually landed
+    const { data: verifyRows } = await supabase
+      .from('commission_results')
+      .select('merchant_name, rep_payout')
+      .eq('agency_id', agencyId)
+      .eq('period_month', periodMonth)
+      .eq('source_type', 'surj');
+    console.log('[commissionEngine] VERIFY surj in DB:', verifyRows?.length, verifyRows);
 
     await supabase
       .from('commission_periods')

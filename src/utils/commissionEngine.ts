@@ -428,6 +428,12 @@ const history = (merchant as any).merchant_history?.find((h: any) => {
 
       const group = serviceGroups.get(serviceKey)!;
 
+      // Subscription/income entries are the authoritative source for rep_user_id.
+      // Expense entries may have been created by a different user.
+      if (entry.entry_type !== 'expense') {
+        group.rep_user_id = entry.rep_user_id;
+      }
+
       if (entry.entry_type === 'expense') {
         group.expenses += Math.abs(entry.amount);
       } else {

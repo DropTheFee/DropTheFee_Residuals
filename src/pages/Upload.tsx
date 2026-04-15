@@ -29,6 +29,7 @@ export default function Upload() {
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<number>(0);
   const [isFetchingVivid, setIsFetchingVivid] = useState(false);
+  const [vividProgress, setVividProgress] = useState('');
   const [uploadRefreshTrigger, setUploadRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -92,6 +93,7 @@ export default function Upload() {
     }
 
     setIsFetchingVivid(true);
+    setVividProgress('Authenticating...');
 
     try {
       const { data: settingData, error: settingError } = await supabase
@@ -109,14 +111,16 @@ export default function Upload() {
 
       const token = settingData.value;
       const periodDate = new Date(selectedPeriod + 'T12:00:00');
-periodDate.setMonth(periodDate.getMonth() - 1);
-const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
+      periodDate.setMonth(periodDate.getMonth() - 1);
+      const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
 
       let allResults: any[] = [];
       let currentPage = 1;
       let totalPages = 1;
 
       while (currentPage <= totalPages) {
+        setVividProgress(`Fetching page ${currentPage}${totalPages > 1 ? ` of ${totalPages}` : ''}...`);
+
         const response = await fetch('/api/vivid-residuals', {
           method: 'POST',
           headers: {
@@ -136,21 +140,31 @@ const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth()
         }
 
         if (data.items && Array.isArray(data.items)) {
-  const filteredResults = data.items.filter((item: any) =>
-    item.date && item.date.startsWith(periodPrefix)
-  );
-  allResults = [...allResults, ...filteredResults];
-}
+          const filteredResults = data.items.filter((item: any) =>
+            item.date && item.date.startsWith(periodPrefix)
+          );
+          allResults = [...allResults, ...filteredResults];
+        }
 
         currentPage++;
       }
 
+      setVividProgress(`Found ${allResults.length} records. Importing...`);
+
       let matchedCount = 0;
       let totalCount = allResults.length;
+      const skippedMerchants: { mid: string; reason: string }[] = [];
 
-      for (const result of allResults) {
+      for (let i = 0; i < allResults.length; i++) {
+        const result = allResults[i];
         const merchantMID = String(result.mid || '');
-        if (!merchantMID) continue;
+
+        if (!merchantMID) {
+          skippedMerchants.push({ mid: '(empty)', reason: 'No MID on record' });
+          continue;
+        }
+
+        setVividProgress(`Importing ${i + 1} of ${totalCount}...`);
 
         const { data: merchantData } = await supabase
           .from('merchants')
@@ -171,18 +185,31 @@ const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth()
               onConflict: 'merchant_id,report_date',
             });
 
-          if (!upsertError) {
+          if (upsertError) {
+            skippedMerchants.push({ mid: merchantMID, reason: `DB error: ${upsertError.message}` });
+          } else {
             matchedCount++;
           }
+        } else {
+          skippedMerchants.push({ mid: merchantMID, reason: 'MID not found in merchants table' });
         }
       }
 
-      toast.success(`Imported ${matchedCount} of ${totalCount} merchants matched`);
+      if (skippedMerchants.length > 0) {
+        console.warn('[Vivid Import] Skipped merchants:', skippedMerchants);
+        const skippedMids = skippedMerchants.map(s => `${s.mid} — ${s.reason}`).join('\n');
+        toast.warning(`Imported ${matchedCount} of ${totalCount}. ${skippedMerchants.length} skipped:\n${skippedMids}`, { duration: 15000 });
+      } else {
+        toast.success(`Imported ${matchedCount} of ${totalCount} merchants matched`);
+      }
+
+      setUploadRefreshTrigger(n => n + 1);
     } catch (error: any) {
       console.error('Error fetching from Vivid API:', error);
       toast.error(`Failed to fetch from Vivid API: ${error.message}`);
     } finally {
       setIsFetchingVivid(false);
+      setVividProgress('');
     }
   };
 
@@ -254,9 +281,9 @@ const periodPrefix = `${periodDate.getFullYear()}-${String(periodDate.getMonth()
             <Download className="mr-2 h-4 w-4" />
             {isFetchingVivid ? 'Fetching...' : 'Fetch from Vivid API'}
           </Button>
-          {isFetchingVivid && (
-            <p className="text-slate-400 text-sm mt-2 text-center">
-              Fetching and importing data, please wait...
+          {isFetchingVivid && vividProgress && (
+            <p className="text-cyan-400 text-sm mt-2 text-center font-medium">
+              {vividProgress}
             </p>
           )}
         </CardContent>

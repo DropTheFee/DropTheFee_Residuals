@@ -9,13 +9,36 @@ import { NABUpload } from '@/components/upload/NABUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { getRepDisplayName } from '@/utils/displayNames';
 
 interface CommissionPeriod {
   period_month: string;
   status: string;
+}
+
+interface NewMerchantPrompt {
+  mid: string;
+  merchantName: string;
+  volume: number;
+  income: number;
+}
+
+interface RepOption {
+  id: string;
+  name: string;
 }
 
 export default function Upload() {
@@ -31,9 +54,16 @@ export default function Upload() {
   const [isFetchingVivid, setIsFetchingVivid] = useState(false);
   const [vividProgress, setVividProgress] = useState('');
   const [uploadRefreshTrigger, setUploadRefreshTrigger] = useState(0);
+  const [newMerchantQueue, setNewMerchantQueue] = useState<NewMerchantPrompt[]>([]);
+  const [newMerchantDialog, setNewMerchantDialog] = useState(false);
+  const [newMerchantName, setNewMerchantName] = useState('');
+  const [newMerchantRepId, setNewMerchantRepId] = useState('');
+  const [reps, setReps] = useState<RepOption[]>([]);
+  const [pendingVividResults, setPendingVividResults] = useState<any[]>([]);
 
   useEffect(() => {
     loadAgencyAndPeriods();
+    loadReps();
   }, []);
 
   useEffect(() => {
@@ -43,6 +73,26 @@ export default function Upload() {
       setSelectedYear(date.getFullYear());
     }
   }, [selectedPeriod]);
+
+  const loadReps = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase
+      .from('users')
+      .select('agency_id')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (!profile?.agency_id) return;
+
+    const { data } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .eq('agency_id', profile.agency_id)
+      .in('role', ['SuperAdmin', 'admin', 'sales_rep', 'junior_sales_rep'])
+      .order('full_name', { ascending: true });
+
+    setReps(data?.map(r => ({ id: r.id, name: getRepDisplayName(r.id, r.full_name) })) || []);
+  };
 
   const loadAgencyAndPeriods = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -154,6 +204,7 @@ export default function Upload() {
       let matchedCount = 0;
       let totalCount = allResults.length;
       const skippedMerchants: { mid: string; reason: string }[] = [];
+      const newMerchants: NewMerchantPrompt[] = [];
 
       for (let i = 0; i < allResults.length; i++) {
         const result = allResults[i];
@@ -191,25 +242,118 @@ export default function Upload() {
             matchedCount++;
           }
         } else {
-          skippedMerchants.push({ mid: merchantMID, reason: 'MID not found in merchants table' });
+          // New merchant — queue for rep assignment
+          newMerchants.push({
+            mid: merchantMID,
+            merchantName: result.merchant?.dba || result.merchant?.name || `Unknown (MID: ${merchantMID})`,
+            volume: result.merchant?.sales?.amount || 0,
+            income: result.revenue || 0,
+          });
         }
       }
 
       if (skippedMerchants.length > 0) {
         console.warn('[Vivid Import] Skipped merchants:', skippedMerchants);
-        const skippedMids = skippedMerchants.map(s => `${s.mid} — ${s.reason}`).join('\n');
-        toast.warning(`Imported ${matchedCount} of ${totalCount}. ${skippedMerchants.length} skipped:\n${skippedMids}`, { duration: 15000 });
-      } else {
-        toast.success(`Imported ${matchedCount} of ${totalCount} merchants matched`);
       }
 
-      setUploadRefreshTrigger(n => n + 1);
+      toast.success(`Imported ${matchedCount} of ${totalCount} existing merchants`);
+
+      if (newMerchants.length > 0) {
+        setNewMerchantQueue(newMerchants);
+        setPendingVividResults(allResults);
+        promptNextNewMerchant(newMerchants);
+      } else {
+        setUploadRefreshTrigger(n => n + 1);
+      }
     } catch (error: any) {
       console.error('Error fetching from Vivid API:', error);
       toast.error(`Failed to fetch from Vivid API: ${error.message}`);
     } finally {
       setIsFetchingVivid(false);
       setVividProgress('');
+    }
+  };
+
+  const promptNextNewMerchant = (queue: NewMerchantPrompt[]) => {
+    if (queue.length === 0) {
+      setNewMerchantDialog(false);
+      setUploadRefreshTrigger(n => n + 1);
+      return;
+    }
+    setNewMerchantName(queue[0].merchantName);
+    setNewMerchantRepId('');
+    setNewMerchantDialog(true);
+  };
+
+  const handleNewMerchantSubmit = async () => {
+    const current = newMerchantQueue[0];
+    if (!current || !newMerchantRepId) return;
+
+    try {
+      // Create merchant
+      const { error: merchantError } = await supabase
+        .from('merchants')
+        .upsert({
+          id: crypto.randomUUID(),
+          agency_id: agencyId,
+          merchant_id: current.mid,
+          merchant_name: newMerchantName,
+          processor: 'Vivid Payments',
+          sales_rep_id: newMerchantRepId,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'agency_id,merchant_id,processor',
+          ignoreDuplicates: false,
+        });
+
+      if (merchantError) {
+        toast.error(`Failed to create merchant: ${merchantError.message}`);
+        return;
+      }
+
+      // Now look up the newly created merchant and import history
+      const { data: newMerchant } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('merchant_id', current.mid)
+        .eq('agency_id', agencyId)
+        .maybeSingle();
+
+      if (newMerchant) {
+        await supabase
+          .from('merchant_history')
+          .upsert({
+            merchant_id: newMerchant.id,
+            report_date: selectedPeriod.substring(0, 10),
+            monthly_volume: current.volume,
+            monthly_income: current.income,
+            agency_id: agencyId,
+          }, {
+            onConflict: 'merchant_id,report_date',
+          });
+      }
+
+      toast.success(`Created ${newMerchantName} and imported data`);
+
+      // Move to next in queue
+      const remaining = newMerchantQueue.slice(1);
+      setNewMerchantQueue(remaining);
+      promptNextNewMerchant(remaining);
+    } catch (error: any) {
+      toast.error(`Error creating merchant: ${error.message}`);
+    }
+  };
+
+  const handleSkipNewMerchant = () => {
+    const remaining = newMerchantQueue.slice(1);
+    setNewMerchantQueue(remaining);
+    if (remaining.length === 0) {
+      setNewMerchantDialog(false);
+      setUploadRefreshTrigger(n => n + 1);
+    } else {
+      promptNextNewMerchant(remaining);
     }
   };
 
@@ -427,6 +571,73 @@ export default function Upload() {
           </CardContent>
         )}
       </Card>
+
+      {/* New Merchant Assignment Dialog */}
+      <Dialog open={newMerchantDialog} onOpenChange={setNewMerchantDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              New Merchant Found ({newMerchantQueue.length} remaining)
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              MID <span className="font-mono text-slate-300">{newMerchantQueue[0]?.mid}</span> is not in
+              your merchant table. Assign a rep to create it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="newMerchantName" className="text-slate-300">Merchant Name</Label>
+              <Input
+                id="newMerchantName"
+                value={newMerchantName}
+                onChange={(e) => setNewMerchantName(e.target.value)}
+                className="bg-slate-900 border-slate-600 text-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newMerchantRep" className="text-slate-300">Assign to Rep</Label>
+              <Select value={newMerchantRepId} onValueChange={setNewMerchantRepId}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                  <SelectValue placeholder="Select rep..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {reps.map((rep) => (
+                    <SelectItem key={rep.id} value={rep.id}>
+                      {rep.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newMerchantQueue[0] && (
+              <div className="text-xs text-slate-500 space-y-1">
+                <p>Volume: ${newMerchantQueue[0].volume.toLocaleString()}</p>
+                <p>Residual: ${newMerchantQueue[0].income.toFixed(2)}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSkipNewMerchant}
+              className="border-slate-600 text-slate-300"
+            >
+              Skip
+            </Button>
+            <Button
+              onClick={handleNewMerchantSubmit}
+              disabled={!newMerchantRepId || !newMerchantName.trim()}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Create & Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

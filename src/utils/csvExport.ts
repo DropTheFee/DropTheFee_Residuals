@@ -111,7 +111,7 @@ doc.addImage('/logo.png', 'PNG', 650, 10, logoWidth, logoHeight);
     formatCurrency(totalGross),
     formatCurrency(totalExpenses),
     formatCurrency(totalNet),
-    formatCurrency(merchantSubtotal,
+    formatCurrency(merchantSubtotal),
   ]);
 
   autoTable(doc, {

@@ -8,7 +8,7 @@ import { Upload, FileSpreadsheet, CircleAlert as AlertCircle, CircleCheck as Che
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { parseDejavooFile, matchMerchantsToExpenses, DejavooExpenseRecord } from '@/utils/dejavooParser';
-import { parseAuthNetTxt, AuthNetExpense } from '@/utils/authnetParser';
+import { parseAuthNetTxt, parseAuthNetCsv, matchAuthNetCsvMerchants, AuthNetExpense } from '@/utils/authnetParser';
 import { parseNMIFile, matchNMIMerchants, NMIExpenseRecord } from '@/utils/nmiParser';
 import { parseCyberSourceFile } from '@/utils/cyberSourceParser';
 import UnmatchedMerchantMapping from './UnmatchedMerchantMapping';
@@ -165,18 +165,20 @@ export default function ExpenseUpload({
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
+    const fileName = selectedFile.name.toLowerCase();
+
     if (selectedVendor === 'authnet') {
-      if (!selectedFile.name.endsWith('.txt')) {
-        toast.error('Please select a valid .txt file for Auth.net');
+      if (!fileName.endsWith('.txt') && !fileName.endsWith('.csv')) {
+        toast.error('Please select a valid .txt or .csv file for Auth.net');
         return;
       }
     } else if (selectedVendor === 'nmi' || selectedVendor === 'cybersource') {
-      if (!selectedFile.name.endsWith('.csv')) {
+      if (!fileName.endsWith('.csv')) {
         toast.error('Please select a valid .csv file');
         return;
       }
     } else {
-      if (!selectedFile.name.endsWith('.xlsx')) {
+      if (!fileName.endsWith('.xlsx')) {
         toast.error('Please select a valid .xlsx file');
         return;
       }
@@ -191,7 +193,7 @@ export default function ExpenseUpload({
       return;
     }
 
-    if (selectedVendor === 'authnet' && !selectedMerchantId) {
+    if (selectedVendor === 'authnet' && file.name.toLowerCase().endsWith('.txt') && !selectedMerchantId) {
       toast.error('Please select a merchant for this Auth.net file');
       return;
     }
@@ -312,50 +314,113 @@ export default function ExpenseUpload({
   async function processAuthNetFile(file: File, agencyId: string) {
     try {
       const fileContent = await file.text();
-      const expenses = parseAuthNetTxt(fileContent);
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
 
-      if (expenses.length === 0) {
-        toast.error('No Transfer expenses found in Auth.net file');
-        return;
+      if (isCsv) {
+        await processAuthNetCsvFile(fileContent, agencyId);
+      } else {
+        await processAuthNetTxtFile(fileContent, agencyId);
       }
-
-      const selectedMerchant = merchants.find(m => m.id === selectedMerchantId);
-      if (!selectedMerchant) {
-        toast.error('Selected merchant not found');
-        return;
-      }
-
-      const expenseRecords = expenses.map(expense => ({
-        agency_id: agencyId,
-        merchant_id: selectedMerchantId,
-        merchant_name: selectedMerchant.merchant_name,
-        expense_source: 'Auth.net',
-        expense_amount: expense.expenseAmount,
-        report_date: expense.reportDate,
-        matched: true,
-      }));
-
-      const { error } = await supabase
-        .from('merchant_expenses')
-        .insert(expenseRecords);
-
-      if (error) {
-        console.error('Insert error:', error);
-        throw error;
-      }
-
-      toast.success(`Successfully uploaded ${expenses.length} Auth.net expense records for ${selectedMerchant.merchant_name}`);
-
-      setFile(null);
-      setSelectedMerchantId('');
-      const input = document.getElementById('expense-file-input') as HTMLInputElement;
-      if (input) input.value = '';
-
-      await loadUnmatchedExpenses();
     } catch (error) {
       console.error('Error processing Auth.net file:', error);
       throw error;
     }
+  }
+
+  async function processAuthNetTxtFile(fileContent: string, agencyId: string) {
+    const expenses = parseAuthNetTxt(fileContent);
+
+    if (expenses.length === 0) {
+      toast.error('No Transfer expenses found in Auth.net file');
+      return;
+    }
+
+    const selectedMerchant = merchants.find(m => m.id === selectedMerchantId);
+    if (!selectedMerchant) {
+      toast.error('Selected merchant not found');
+      return;
+    }
+
+    const expenseRecords = expenses.map(expense => ({
+      agency_id: agencyId,
+      merchant_id: selectedMerchantId,
+      merchant_name: selectedMerchant.merchant_name,
+      expense_source: 'Auth.net',
+      expense_amount: expense.expenseAmount,
+      report_date: expense.reportDate,
+      matched: true,
+    }));
+
+    const { error } = await supabase
+      .from('merchant_expenses')
+      .insert(expenseRecords);
+
+    if (error) {
+      console.error('Insert error:', error);
+      throw error;
+    }
+
+    toast.success(`Successfully uploaded ${expenses.length} Auth.net expense records for ${selectedMerchant.merchant_name}`);
+
+    setFile(null);
+    setSelectedMerchantId('');
+    const input = document.getElementById('expense-file-input') as HTMLInputElement;
+    if (input) input.value = '';
+
+    await loadUnmatchedExpenses();
+  }
+
+  async function processAuthNetCsvFile(fileContent: string, agencyId: string) {
+    const expenses = parseAuthNetCsv(fileContent);
+
+    if (expenses.length === 0) {
+      toast.error('No expense records found in Auth.net CSV file');
+      return;
+    }
+
+    const { data: savedMappings } = await supabase
+      .from('expense_name_mappings')
+      .select('expense_name, merchant_id')
+      .eq('agency_id', agencyId)
+      .eq('expense_source', 'Auth.net');
+
+    const matchedExpenses = matchAuthNetCsvMerchants(expenses, savedMappings || []);
+
+    const merchantNameById = new Map(merchants.map(m => [m.id, m.merchant_name]));
+
+    const expenseRecords = matchedExpenses.map(expense => ({
+      agency_id: agencyId,
+      merchant_id: expense.merchantId,
+      merchant_name: expense.merchantId
+        ? (merchantNameById.get(expense.merchantId) || expense.paymentGatewayId)
+        : expense.paymentGatewayId,
+      expense_source: 'Auth.net',
+      expense_amount: expense.expenseAmount,
+      report_date: expense.reportDate,
+      matched: expense.matched,
+    }));
+
+    const { error } = await supabase
+      .from('merchant_expenses')
+      .insert(expenseRecords);
+
+    if (error) {
+      console.error('Insert error:', error);
+      throw error;
+    }
+
+    const unmatchedCount = matchedExpenses.filter(e => !e.matched).length;
+    if (unmatchedCount > 0) {
+      toast.warning(`Upload complete. ${unmatchedCount} Payment Gateway ID${unmatchedCount === 1 ? '' : 's'} need mapping.`);
+    } else {
+      toast.success(`Successfully uploaded ${expenses.length} Auth.net expense records`);
+    }
+
+    setFile(null);
+    const input = document.getElementById('expense-file-input') as HTMLInputElement;
+    if (input) input.value = '';
+
+    await loadUnmatchedExpenses();
   }
 
   async function processNMIFile(file: File, agencyId: string) {
@@ -570,7 +635,7 @@ export default function ExpenseUpload({
                 </SelectContent>
               </Select>
               <p className="text-xs text-slate-400">
-                Auth.net files contain expenses for one merchant per file
+                Required only for legacy .txt files (one merchant per file). New .csv files match merchants automatically by Payment Gateway ID.
               </p>
             </div>
           )}
@@ -578,7 +643,7 @@ export default function ExpenseUpload({
           <div>
             <Label htmlFor="expense-file-input" className="text-slate-300 mb-2 block">
               Upload File ({
-  selectedVendor === 'authnet' ? '.txt' :
+  selectedVendor === 'authnet' ? '.txt,.csv' :
   (selectedVendor === 'nmi' || selectedVendor === 'cybersource') ? '.csv' :
   '.xlsx'
 })
@@ -588,7 +653,7 @@ export default function ExpenseUpload({
                 id="expense-file-input"
                 type="file"
                 accept={
-  selectedVendor === 'authnet' ? '.txt' :
+  selectedVendor === 'authnet' ? '.txt,.csv' :
   (selectedVendor === 'nmi' || selectedVendor === 'cybersource') ? '.csv' :
   '.xlsx'
 }

@@ -130,8 +130,9 @@ export default function DynamicCSVUpload({
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    const isCSV = selectedFile.name.endsWith('.csv');
-    const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+    const fileName = selectedFile.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
     if (!isCSV && !isExcel) {
       toast.error('Please select a valid CSV or Excel file');
@@ -227,8 +228,10 @@ export default function DynamicCSVUpload({
 
       let result;
 
+      const fileName = file.name.toLowerCase();
+
       if (selectedProcessor === 'Paysafe' || selectedProcessor === 'PCS') {
-        if (!file.name.endsWith('.xlsx')) {
+        if (!fileName.endsWith('.xlsx')) {
           toast.error(`${selectedProcessor} requires an .xlsx file`);
           setUploading(false);
           return;
@@ -240,7 +243,7 @@ export default function DynamicCSVUpload({
           agentFilter || undefined
         );
       } else if (selectedProcessor === 'Link2Pay') {
-        if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
           toast.error('Link2Pay requires an Excel file (.xlsx or .xls)');
           setUploading(false);
           return;
@@ -248,7 +251,7 @@ export default function DynamicCSVUpload({
 
         result = await parseLink2PayFile(file);
       } else if (selectedProcessor === 'Payarc') {
-        if (!file.name.endsWith('.csv')) {
+        if (!fileName.endsWith('.csv')) {
           toast.error('Payarc requires a CSV file');
           setUploading(false);
           return;

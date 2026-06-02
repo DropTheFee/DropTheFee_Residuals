@@ -167,8 +167,9 @@ export default function Processors() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    const isCSV = selectedFile.name.endsWith('.csv');
-    const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+    const fileName = selectedFile.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
     if (!isCSV && !isExcel) {
       toast.error('Please select a valid CSV or Excel file');

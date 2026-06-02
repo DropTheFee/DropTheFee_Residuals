@@ -73,3 +73,72 @@ export function parseAuthNetTxt(fileContent: string): AuthNetExpense[] {
 
   return expenses;
 }
+
+export interface AuthNetCsvExpense {
+  paymentGatewayId: string;
+  expenseAmount: number;
+  reportDate: string;
+  matched: boolean;
+  merchantId: string | null;
+}
+
+function splitCsvRow(line: string): string[] {
+  return line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+}
+
+export function parseAuthNetCsv(csvText: string): AuthNetCsvExpense[] {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) return [];
+
+  const headers = splitCsvRow(lines[0]);
+  const gatewayIdx = headers.indexOf('Payment Gateway ID');
+  const residualIdx = headers.indexOf('Residual Amount');
+  const monthIdx = headers.indexOf('Collection Month');
+  const yearIdx = headers.indexOf('Collection Year');
+
+  if (gatewayIdx === -1 || residualIdx === -1 || monthIdx === -1 || yearIdx === -1) {
+    throw new Error('Invalid Auth.net CSV format: missing one of Payment Gateway ID, Residual Amount, Collection Month, Collection Year');
+  }
+
+  const expenses: AuthNetCsvExpense[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvRow(lines[i]);
+    const gatewayId = cols[gatewayIdx];
+    if (!gatewayId) continue;
+
+    const residual = parseFloat(cols[residualIdx]);
+    if (isNaN(residual)) continue;
+
+    const month = parseInt(cols[monthIdx], 10);
+    const year = parseInt(cols[yearIdx], 10);
+    if (isNaN(month) || isNaN(year)) continue;
+
+    const reportDate = `${year}-${String(month).padStart(2, '0')}-01`;
+
+    expenses.push({
+      paymentGatewayId: gatewayId,
+      expenseAmount: residual,
+      reportDate,
+      matched: false,
+      merchantId: null,
+    });
+  }
+
+  return expenses;
+}
+
+export function matchAuthNetCsvMerchants(
+  expenses: AuthNetCsvExpense[],
+  savedMappings: { expense_name: string; merchant_id: string }[]
+): AuthNetCsvExpense[] {
+  return expenses.map(expense => {
+    const savedMapping = savedMappings.find(
+      m => m.expense_name === expense.paymentGatewayId
+    );
+    if (savedMapping) {
+      return { ...expense, matched: true, merchantId: savedMapping.merchant_id };
+    }
+    return expense;
+  });
+}

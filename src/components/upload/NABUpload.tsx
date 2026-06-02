@@ -26,7 +26,7 @@ export function NABUpload() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.xlsx')) {
+      if (!selectedFile.name.toLowerCase().endsWith('.xlsx')) {
         toast.error('Please select an .xlsx file');
         return;
       }

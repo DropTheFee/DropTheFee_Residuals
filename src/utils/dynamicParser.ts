@@ -19,7 +19,8 @@ export const parseFileWithMapping = async (
   reportType: string | undefined,
   mapping: ProcessorMapping
 ): Promise<ParsedCSVResult> => {
-  const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
   let rows: any[] = [];
 
@@ -194,7 +195,8 @@ const parseCSVFile = async (file: File, headerRow: number): Promise<any[]> => {
 };
 
 export const extractFileHeaders = async (file: File, headerRow: number = 0): Promise<string[]> => {
-  const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
   if (isExcel) {
     return extractExcelHeaders(file, headerRow);

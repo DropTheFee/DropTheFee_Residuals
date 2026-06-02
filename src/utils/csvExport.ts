@@ -72,6 +72,7 @@ export const exportRepStatementToHTML = async (
   const totalGross = merchantResults.reduce((s, r) => s + (r.gross_residual || 0), 0);
   const totalExpenses = merchantResults.reduce((s, r) => s + (r.expenses || 0), 0);
   const totalNet = merchantResults.reduce((s, r) => s + (r.net_residual || 0), 0);
+  const merchantSubtotal = merchantResults.reduce((s, r) => s + (r.rep_payout || 0), 0);
   const totalPayout = results
     .filter((r) => r.rep_payout !== 0)
     .reduce((s, r) => s + (r.rep_payout || 0), 0);
@@ -110,7 +111,7 @@ doc.addImage('/logo.png', 'PNG', 650, 10, logoWidth, logoHeight);
     formatCurrency(totalGross),
     formatCurrency(totalExpenses),
     formatCurrency(totalNet),
-    formatCurrency(totalPayout),
+    formatCurrency(merchantSubtotal),
   ]);
 
   autoTable(doc, {

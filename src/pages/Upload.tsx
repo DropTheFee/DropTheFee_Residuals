@@ -23,6 +23,7 @@ import { ChevronDown, ChevronRight, MonitorSmartphone, DollarSign, Gift, Downloa
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { getRepDisplayName } from '@/utils/displayNames';
+import { buildPeriodOptions, currentPeriodMonth } from '@/utils/periods';
 
 interface CommissionPeriod {
   period_month: string;
@@ -108,7 +109,7 @@ export default function Upload() {
 
     setAgencyId(profile.agency_id);
 
-    const { data: periods, error: periodsError } = await supabase
+    const { data: dbPeriods, error: periodsError } = await supabase
       .from('commission_periods')
       .select('*')
       .eq('agency_id', profile.agency_id)
@@ -119,16 +120,13 @@ export default function Upload() {
       return;
     }
 
-    console.log('Upload page - Raw periods from DB:', periods);
-    console.log('Upload page - Agency ID:', profile.agency_id);
-    console.log('Upload page - Periods count:', periods?.length);
-
-    setPeriods(periods || []);
-    if (periods && periods.length > 0 && !selectedPeriod) {
-      setSelectedPeriod(periods[0].period_month);
+    // Build the dropdown from a date range (3 years back, 6 months forward) and
+    // merge DB status onto it, so the current month is always selectable.
+    const options = buildPeriodOptions(dbPeriods || []);
+    setPeriods(options);
+    if (!selectedPeriod) {
+      setSelectedPeriod(currentPeriodMonth());
     }
-
-    console.log('Upload page - State set to periods:', periods);
   };
 
   const formatPeriodDisplay = (periodMonth: string) => {

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useViewAs } from '@/contexts/ViewAsContext';
 import RepCommissionStatement from '@/components/commissions/RepCommissionStatement';
+import { buildPeriodOptions, currentPeriodMonth } from '@/utils/periods';
 
 interface CommissionPeriod {
   id: string;
@@ -86,32 +87,16 @@ export default function Commissions() {
 
       if (periodsError) throw periodsError;
 
-      const allPeriods = existingPeriods || [];
-
-      const currentDate = new Date();
-      const lastSixMonths = [];
-      for (let i = 0; i < 6; i++) {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() - i;
-        const d = new Date(year, month, 1);
-        const periodMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-        if (!allPeriods.find(p => p.period_month === periodMonth)) {
-          lastSixMonths.push({
-            id: periodMonth,
-            period_month: periodMonth,
-            status: 'open',
-          });
-        }
-      }
-
-      const combinedPeriods = [...allPeriods, ...lastSixMonths].sort((a, b) =>
-        b.period_month.localeCompare(a.period_month)
-      );
+      // Build the dropdown from a date range (3 years back, 6 months forward) and
+      // merge DB status onto it, so the current month is always selectable.
+      const combinedPeriods = buildPeriodOptions(existingPeriods || []);
 
       setPeriods(combinedPeriods);
-      if (combinedPeriods.length > 0 && !selectedPeriod) {
-        setSelectedPeriod(combinedPeriods[0].period_month);
-        setCurrentPeriodStatus(combinedPeriods[0].status);
+      if (!selectedPeriod) {
+        const current = currentPeriodMonth();
+        const currentRow = combinedPeriods.find(p => p.period_month === current);
+        setSelectedPeriod(current);
+        setCurrentPeriodStatus(currentRow?.status || 'open');
       }
 
       setLoading(false);

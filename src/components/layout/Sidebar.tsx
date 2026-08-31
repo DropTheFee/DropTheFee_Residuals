@@ -28,15 +28,15 @@ export default function Sidebar({ user }: SidebarProps) {
   const filteredMenuItems = menuItems.filter(item => {
     if (!user) return true;
 
-    if (isViewingAsRep) {
-      return item.path === '/commissions';
-    }
+    // In View As mode, mirror exactly what a real sales_rep would see by running
+    // the same allowedRoles/restrictedRoles filter with 'sales_rep' as the role.
+    const effectiveRole: string = isViewingAsRep ? 'sales_rep' : user.role;
 
     if (item.allowedRoles) {
-      return item.allowedRoles.includes(user.role);
+      return item.allowedRoles.includes(effectiveRole);
     }
     if (!item.restrictedRoles) return true;
-    return !item.restrictedRoles.includes(user.role);
+    return !item.restrictedRoles.includes(effectiveRole);
   });
 
   return (

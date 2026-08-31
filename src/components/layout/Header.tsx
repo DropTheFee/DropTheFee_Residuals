@@ -26,7 +26,7 @@ export function Header({ user, onSignOut }: HeaderProps) {
   const [selectedRepId, setSelectedRepId] = useState<string>('');
 
   useEffect(() => {
-    if (user?.role === 'superadmin') {
+    if (user?.role?.toLowerCase() === 'superadmin') {
       loadReps();
     }
   }, [user]);
@@ -105,7 +105,7 @@ export function Header({ user, onSignOut }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            {user?.role === 'superadmin' && !isViewingAsRep && reps.length > 0 && (
+            {user?.role?.toLowerCase() === 'superadmin' && !isViewingAsRep && reps.length > 0 && (
               <div className="flex items-center gap-2">
                 <Eye className="h-4 w-4 text-slate-400" />
                 <Select value={selectedRepId} onValueChange={handleViewAsChange}>

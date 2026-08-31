@@ -68,8 +68,10 @@ export default function MerchantsTable() {
 
       const merchantsWithRep = (data || []).map(m => ({
         ...m,
-        sales_rep_name: (m as any).sales_rep?.id
-          ? getRepDisplayName((m as any).sales_rep.id, (m as any).sales_rep.full_name)
+        // The embed selects only full_name (not id), so guard on full_name and use
+        // the merchant's own sales_rep_id column for the display-name/override lookup.
+        sales_rep_name: (m as any).sales_rep?.full_name
+          ? getRepDisplayName(m.sales_rep_id!, (m as any).sales_rep.full_name)
           : null
       }));
       setMerchants(merchantsWithRep);

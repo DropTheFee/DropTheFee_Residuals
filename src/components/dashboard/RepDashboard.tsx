@@ -26,7 +26,7 @@ interface CommissionResultRow {
 interface PeriodMetrics {
   totalVolume: number;
   totalPayout: number;
-  totalNetResidual: number;
+  totalMerchantPayout: number;
   liveMerchants: number;
   openAccounts: number;
   merchantCount: number;
@@ -36,7 +36,7 @@ interface PeriodMetrics {
 const EMPTY_METRICS: PeriodMetrics = {
   totalVolume: 0,
   totalPayout: 0,
-  totalNetResidual: 0,
+  totalMerchantPayout: 0,
   liveMerchants: 0,
   openAccounts: 0,
   merchantCount: 0,
@@ -69,7 +69,10 @@ function computeMetrics(rows: CommissionResultRow[]): PeriodMetrics {
     surjResults.reduce((s, r)          => s + (r.rep_payout || 0), 0) +
     manualExpenseResults.reduce((s, r) => s + (r.rep_payout || 0), 0);
 
-  const totalNetResidual = merchantResults.reduce((s, r) => s + (r.net_residual || 0), 0);
+  // Post-split merchant earnings: rep_payout already has the split % applied, so the
+  // dashboard shows what the rep actually earns — not the pre-split net_residual pool.
+  // Summed per bucket, so QTD/YTD are the addition of the monthly merchant payouts.
+  const totalMerchantPayout = merchantResults.reduce((s, r) => s + (r.rep_payout || 0), 0);
 
   // Live/Open counts use ONLY the rep's own book (source_type 'merchant', no override),
   // so override-only merchants (e.g. an SAE override on another rep's accounts) are excluded.
@@ -81,9 +84,9 @@ function computeMetrics(rows: CommissionResultRow[]): PeriodMetrics {
   ).size;
   const merchantCount = new Set(merchantResults.map(merchantKey)).size;
 
-  const avgResidual = liveMerchants > 0 ? totalNetResidual / liveMerchants : 0;
+  const avgResidual = liveMerchants > 0 ? totalMerchantPayout / liveMerchants : 0;
 
-  return { totalVolume, totalPayout, totalNetResidual, liveMerchants, openAccounts, merchantCount, avgResidual };
+  return { totalVolume, totalPayout, totalMerchantPayout, liveMerchants, openAccounts, merchantCount, avgResidual };
 }
 
 export function RepDashboard({ repId, repName }: RepDashboardProps) {
@@ -306,7 +309,7 @@ export function RepDashboard({ repId, repName }: RepDashboardProps) {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 text-sm">Residual</span>
                   <span className="text-green-400 font-semibold tabular-nums">
-                    {formatCurrency(data.totalNetResidual)}
+                    {formatCurrency(data.totalMerchantPayout)}
                   </span>
                 </div>
                 <div className="border-t border-slate-700/50" />

@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ComposedChart,
   Bar,
@@ -29,6 +30,12 @@ interface DashboardProps {
   user: User;
   onNavigateToUpload: () => void;
   onNavigateToCommissions: () => void;
+}
+
+interface CommissionPeriod {
+  id: string;
+  period_month: string;
+  status: string;
 }
 
 interface AgentRosterRecord {
@@ -69,13 +76,62 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
   const [historicalData, setHistoricalData] = useState<HistoricalPoint[]>([]);
   const [processorData, setProcessorData] = useState<ProcessorPoint[]>([]);
   const [repPerformance, setRepPerformance] = useState<RepPerformanceRow[]>([]);
+  const [periods, setPeriods] = useState<CommissionPeriod[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [periodsLoaded, setPeriodsLoaded] = useState(false);
 
   useEffect(() => {
-    fetchDashboardData();
+    loadPeriods();
     if (user.role === 'SuperAdmin') {
       fetchAgentRoster();
     }
   }, [user]);
+
+  // Re-fetch KPIs / donut / rep performance whenever the selected period changes.
+  // Gated on periodsLoaded so the very first fetch uses the resolved default
+  // period rather than the empty initial value.
+  useEffect(() => {
+    if (periodsLoaded) {
+      fetchDashboardData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod, periodsLoaded]);
+
+  // Period list for the header dropdown — same query shape as Commissions.tsx:
+  // commission_periods filtered by agency_id, newest period_month first. Defaults
+  // the selection to the most recent period so the dashboard loads as before.
+  const loadPeriods = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('agency_id')
+        .eq('id', authUser.id)
+        .single();
+
+      if (!profile?.agency_id) return;
+
+      const { data: existingPeriods, error: periodsError } = await supabase
+        .from('commission_periods')
+        .select('*')
+        .eq('agency_id', profile.agency_id)
+        .order('period_month', { ascending: false });
+
+      if (periodsError) throw periodsError;
+
+      const rows = (existingPeriods || []) as CommissionPeriod[];
+      setPeriods(rows);
+      if (rows.length > 0) {
+        setSelectedPeriod(rows[0].period_month);
+      }
+    } catch (error) {
+      console.error('Error loading periods:', error);
+    } finally {
+      setPeriodsLoaded(true);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -91,6 +147,9 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
 
       if (!profile?.agency_id) throw new Error('No agency_id found');
 
+      // Absolute latest uploaded report_date. Drives the 12-month trend window
+      // (which must always show full recent history) and acts as the fallback
+      // period when nothing is selected yet / no commission_periods exist.
       const { data: latestPeriod } = await supabase
         .from('merchant_history')
         .select('report_date')
@@ -105,14 +164,26 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
         return;
       }
 
-      const latestDate = new Date(latestPeriod.report_date + 'T12:00:00');
-      const quarterStart = startOfQuarter(latestDate);
-      const ytdStart = startOfYear(latestDate);
+      // Period the KPI cards, processor donut, and rep table reflect. Prefer the
+      // user's selection; fall back to the latest report_date so behavior is
+      // unchanged when no period is selected.
+      const reportDate = selectedPeriod || latestPeriod.report_date;
 
-      const prevMonthDate = new Date(latestDate);
+      const selectedDate = new Date(reportDate + 'T12:00:00');
+      const latestDate = new Date(latestPeriod.report_date + 'T12:00:00');
+
+      // Hero KPI trend arrows compare the SELECTED month against the month
+      // immediately before it.
+      const prevMonthDate = new Date(selectedDate);
       prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
       const prevMonthStr = prevMonthDate.toISOString().slice(0, 7) + '-01';
 
+      // Period Overview (This Quarter / YTD) and the 12-month trend chart stay
+      // anchored to the ABSOLUTE latest report_date — they do NOT respond to the
+      // period selector (only the hero KPI cards, donut, and rep table do). This
+      // also keeps the unbounded `gte` quarter/YTD queries correct.
+      const quarterStart = startOfQuarter(latestDate);
+      const ytdStart = startOfYear(latestDate);
       const twelveMonthsAgo = new Date(latestDate);
       twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
 
@@ -129,7 +200,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           .from('merchant_history')
           .select('monthly_volume, monthly_income, merchant_id, agency_id')
           .eq('agency_id', profile.agency_id)
-          .eq('report_date', latestPeriod.report_date),
+          .eq('report_date', reportDate),
         supabase
           .from('merchant_history')
           .select('monthly_volume, monthly_income, merchant_id')
@@ -155,7 +226,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           .from('merchant_history')
           .select('monthly_income, merchants!inner(processor)')
           .eq('agency_id', profile.agency_id)
-          .eq('report_date', latestPeriod.report_date),
+          .eq('report_date', reportDate),
       ]);
 
       console.log('4. currentPeriodData:', currentPeriodData);
@@ -197,18 +268,12 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       }
 
       // ── Rep performance ──────────────────────────────────────────────────
-      // Use the latest period_month from commission_results directly — do NOT
-      // reuse latestPeriod.report_date (merchant_history) because uploads and
-      // commission calculations can be on different periods.
-      const { data: latestCommPeriod } = await supabase
-        .from('commission_results')
-        .select('period_month')
-        .eq('agency_id', profile.agency_id)
-        .order('period_month', { ascending: false })
-        .limit(1)
-        .single();
-
-      const commPeriodMonth = latestCommPeriod?.period_month ?? null;
+      // Follow the SELECTED period (period_month === report_date here), rather
+      // than independently fetching the latest commission period. If the selected
+      // period has residuals but no calculated commissions (or vice versa), the
+      // query below simply returns nothing and the table shows its existing
+      // empty state — the mismatch stays visible instead of silently blank.
+      const commPeriodMonth = reportDate || null;
 
       const agencyTotalResidual =
         currentPeriodData?.reduce((s, r) => s + (Number(r.monthly_income) || 0), 0) || 1;
@@ -285,7 +350,7 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
       const ytdMerchantCount = new Set(ytdData?.map(r => r.merchant_id)).size || 0;
 
       const currentMonth: PeriodStats = {
-        period: format(new Date(latestPeriod.report_date + 'T12:00:00'), 'MMMM yyyy'),
+        period: format(selectedDate, 'MMMM yyyy'),
         totalVolume,
         totalResidual,
         merchantCount,
@@ -473,7 +538,21 @@ export function Dashboard({ user, onNavigateToUpload, onNavigateToCommissions }:
           <h2 className="text-3xl font-bold text-slate-50">Dashboard</h2>
           <p className="text-slate-400 mt-1">Welcome back, {user.full_name || user.email}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {periods.length > 0 && (
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[180px] bg-[#16213e] border-slate-600 text-slate-200">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                {periods.map((period) => (
+                  <SelectItem key={period.period_month} value={period.period_month}>
+                    {format(new Date(period.period_month + 'T12:00:00'), 'MMMM yyyy')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {(user.role === 'SuperAdmin' || user.role === 'admin') && (
             <Button onClick={onNavigateToUpload} className="bg-[#0f3460] hover:bg-[#0f3460]/90">
               <img

@@ -96,6 +96,8 @@ const App = () => {
   };
 
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    const { isViewingAsRep } = useViewAs();
+
     if (!authUser) {
       return <Navigate to="/" replace />;
     }
@@ -114,7 +116,10 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-slate-900 to-[#0f172a]">
         <Header user={user} onSignOut={handleSignOut} />
-        <div className="flex pt-16">
+        {/* Clear the fixed header (h-16 = 4rem). When the View As banner is shown,
+            Header shifts the bar down to top-10 (2.5rem), so content must clear
+            2.5rem + 4rem = 6.5rem. Mirrors the header's top offset + height. */}
+        <div className={`flex ${isViewingAsRep ? 'pt-[6.5rem]' : 'pt-16'}`}>
           <Sidebar user={user} />
           <main className="flex-1 p-6">
             {children}

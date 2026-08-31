@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Dashboard } from './components/dashboard/Dashboard';
+import { RepDashboard } from './components/dashboard/RepDashboard';
 import { Header } from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Upload from './pages/Upload';
@@ -17,7 +18,8 @@ import AddAgent from './pages/AddAgent';
 import Commissions from './pages/Commissions';
 import SuRJ from './pages/SuRJ';
 import { User } from '@/types';
-import { ViewAsProvider } from '@/contexts/ViewAsContext';
+import { ViewAsProvider, useViewAs } from '@/contexts/ViewAsContext';
+import { getRepDisplayName } from '@/utils/displayNames';
 
 const queryClient = new QueryClient();
 
@@ -124,6 +126,23 @@ const App = () => {
 
   const DashboardLayout = () => {
     const navigate = useNavigate();
+    const { isViewingAsRep, viewAsRepId, viewAsRepName } = useViewAs();
+
+    // Impersonation takes precedence: a SuperAdmin viewing as a rep sees that
+    // rep's scoped dashboard.
+    if (isViewingAsRep && viewAsRepId) {
+      return <RepDashboard repId={viewAsRepId} repName={viewAsRepName || ''} />;
+    }
+
+    // Reps see their own scoped dashboard (their user id is the rep_user_id).
+    if (user!.role === 'sales_rep' || user!.role === 'junior_sales_rep') {
+      return (
+        <RepDashboard
+          repId={user!.id}
+          repName={getRepDisplayName(user!.id, user!.full_name) || user!.email}
+        />
+      );
+    }
 
     return (
       <Dashboard

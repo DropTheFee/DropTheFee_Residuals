@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { getRepDisplayName } from '@/utils/displayNames';
+import { useViewAs } from '@/contexts/ViewAsContext';
 import { Merchant } from '@/types';
 
 interface MerchantWithRep extends Merchant {
@@ -24,6 +25,7 @@ export default function MerchantsTable() {
   const [filterRep, setFilterRep] = useState<string>('all');
   const [sortBy, setSortBy] = useState<keyof Merchant>('merchant_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const { isViewingAsRep, viewAsRepId } = useViewAs();
 
   useEffect(() => {
     const load = async () => {
@@ -34,7 +36,7 @@ export default function MerchantsTable() {
         .eq('id', user.id)
         .single();
       console.log('agency_id:', profile?.agency_id);
-      const { data, error } = await supabase
+      let query = supabase
         .from('merchants')
         .select(`
           *,
@@ -52,8 +54,16 @@ export default function MerchantsTable() {
             matched
           )
         `)
-        .eq('agency_id', profile.agency_id)
-        .order('merchant_name', { ascending: true });
+        .eq('agency_id', profile.agency_id);
+
+      // When a SuperAdmin is viewing as a rep, scope the merchant list — and the
+      // KPI totals derived from it — to that rep's own book (merchants.sales_rep_id
+      // holds the rep's user id, matching commission_results.rep_user_id).
+      if (isViewingAsRep && viewAsRepId) {
+        query = query.eq('sales_rep_id', viewAsRepId);
+      }
+
+      const { data, error } = await query.order('merchant_name', { ascending: true });
       console.log('merchants result:', data, error);
 
       const merchantsWithRep = (data || []).map(m => ({
@@ -85,7 +95,7 @@ export default function MerchantsTable() {
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isViewingAsRep, viewAsRepId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

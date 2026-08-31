@@ -111,6 +111,7 @@ export default function ExpenseUpload({
         .from('merchant_expenses')
         .select('*')
         .eq('agency_id', agencyId)
+        .eq('report_date', reportDate)
         .eq('matched', false)
         .eq('skipped', false)
         .order('expense_amount', { ascending: false });

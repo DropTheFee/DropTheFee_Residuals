@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/lib/supabase';
 import { getRepDisplayName } from '@/utils/displayNames';
 import { TrendingUp, DollarSign } from 'lucide-react';
+import { splitStatementSections, computeStatementTotals } from '@/utils/statementTotals';
+import PayoutHistory from '@/components/commissions/PayoutHistory';
 
 interface RepCommissionStatementProps {
   repId: string;
@@ -154,23 +156,15 @@ export default function RepCommissionStatement({
     }).format(value);
   };
 
-  // Section filters per spec
-  const merchantResults      = results.filter(r => r.source_type === 'merchant' && !r.override_from_user_id);
-  const saeOverrideResults   = results.filter(r => r.source_type === 'expense'  &&  r.override_from_user_id);
-  const nabResults           = results.filter(r => r.source_type === 'nab');
-  const surjResults          = results.filter(r => r.source_type === 'surj');
-  const manualExpenseResults = results.filter(r => r.source_type === 'expense'  && !r.override_from_user_id);
-
-  const totalVolume     = merchantResults.reduce((sum, r) => sum + r.monthly_volume, 0);
-  const tierPercentage  = merchantResults.length > 0 ? merchantResults[0].split_pct : 0;
-
-  // Total sums only the five defined sections
-  const totalPayout =
-    merchantResults.reduce((sum, r)      => sum + r.rep_payout, 0) +
-    saeOverrideResults.reduce((sum, r)   => sum + r.rep_payout, 0) +
-    nabResults.reduce((sum, r)           => sum + r.rep_payout, 0) +
-    surjResults.reduce((sum, r)          => sum + r.rep_payout, 0) +
-    manualExpenseResults.reduce((sum, r) => sum + r.rep_payout, 0);
+  // Section filters and totals are shared with Payout History (utils/statementTotals)
+  const {
+    merchant: merchantResults,
+    saeOverride: saeOverrideResults,
+    nab: nabResults,
+    surj: surjResults,
+    manualExpense: manualExpenseResults,
+  } = splitStatementSections(results);
+  const { totalVolume, tierPercentage, totalPayout } = computeStatementTotals(results);
 
   if (loading) {
     return <div className="text-center py-8 text-slate-400">Loading...</div>;
@@ -183,6 +177,15 @@ export default function RepCommissionStatement({
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-white">{repName} - Commission Statement</h1>
           </div>
+
+          {agencyId && (
+            <PayoutHistory
+              repId={repId}
+              agencyId={agencyId}
+              selectedPeriod={selectedPeriod}
+              onSelectPeriod={setSelectedPeriod}
+            />
+          )}
 
           {periods.length > 0 && (
             <Card className="bg-slate-800/50 border-slate-700">

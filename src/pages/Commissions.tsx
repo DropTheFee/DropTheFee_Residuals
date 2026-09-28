@@ -53,6 +53,7 @@ export default function Commissions() {
   const [recurringExpenses, setRecurringExpenses] = useState<any[]>([]);
   const [agencyId, setAgencyId] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
+  const [selfRep, setSelfRep] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     loadPeriods();
@@ -71,13 +72,20 @@ export default function Commissions() {
 
       const { data: profile } = await supabase
         .from('users')
-        .select('agency_id, role')
+        .select('agency_id, role, full_name')
         .eq('id', user.id)
         .single();
 
       if (!profile?.agency_id) return;
       setAgencyId(profile.agency_id);
       setUserRole(profile.role || '');
+
+      // Reps see their own Commission Statement, not the agency-wide view.
+      if (profile.role === 'sales_rep' || profile.role === 'junior_sales_rep') {
+        setSelfRep({ id: user.id, name: getRepDisplayName(user.id, profile.full_name) || user.email || '' });
+        setLoading(false);
+        return;
+      }
 
       const { data: existingPeriods, error: periodsError } = await supabase
         .from('commission_periods')
@@ -406,6 +414,10 @@ export default function Commissions() {
 
   if (isViewingAsRep && viewAsRepId) {
     return <RepCommissionStatement repId={viewAsRepId} repName={viewAsRepName || ''} />;
+  }
+
+  if (selfRep) {
+    return <RepCommissionStatement repId={selfRep.id} repName={selfRep.name} />;
   }
 
   const visibleReps = repSummaries.filter(r => r.rep_id !== '5798d80d-bad6-4750-a489-988e2e1ef96e');

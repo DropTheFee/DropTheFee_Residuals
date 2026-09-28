@@ -12,6 +12,18 @@ import { parseAuthNetTxt, parseAuthNetCsv, matchAuthNetCsvMerchants, AuthNetExpe
 import { parseNMIFile, matchNMIMerchants, NMIExpenseRecord } from '@/utils/nmiParser';
 import { parseCyberSourceFile } from '@/utils/cyberSourceParser';
 import UnmatchedMerchantMapping from './UnmatchedMerchantMapping';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+const DEJAVOO_SOURCE = 'Dejavoo iPosPays';
 
 interface UploadSummary {
   totalRecords: number;
@@ -47,6 +59,20 @@ export default function ExpenseUpload({
   const [currentAgencyId, setCurrentAgencyId] = useState<string>('');
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
+  const [replaceConfirm, setReplaceConfirm] = useState<{
+    count: number;
+    periodLabel: string;
+    resolve: (confirmed: boolean) => void;
+  } | null>(null);
+
+  function confirmReplace(count: number, periodLabel: string): Promise<boolean> {
+    return new Promise(resolve => setReplaceConfirm({ count, periodLabel, resolve }));
+  }
+
+  function closeReplaceConfirm(confirmed: boolean) {
+    replaceConfirm?.resolve(confirmed);
+    setReplaceConfirm(null);
+  }
 
   const hasUnmatchedMerchants = uploadSummary && uploadSummary.unmatchedCount > 0;
 
@@ -263,7 +289,7 @@ export default function ExpenseUpload({
         .from('expense_name_mappings')
         .select('expense_name, merchant_id')
         .eq('agency_id', agencyId)
-        .eq('expense_source', 'Dejavoo iPosPays');
+        .eq('expense_source', DEJAVOO_SOURCE);
 
       const matchedExpenses = await matchMerchantsToExpenses(
         expenses,
@@ -278,11 +304,41 @@ export default function ExpenseUpload({
         agency_id: agencyId,
         merchant_id: expense.merchantId || null,
         merchant_name: expense.merchantName,
-        expense_source: 'Dejavoo iPosPays',
+        expense_source: DEJAVOO_SOURCE,
         expense_amount: expense.expenseAmount,
         report_date: reportDate,
         matched: Boolean(expense.matched),
       }));
+
+      // A re-upload replaces this period's Dejavoo rows: same agency, source and
+      // report_date. Delete runs before insert so the live unique constraint on
+      // (merchant_id, expense_source, report_date) doesn't reject the new rows.
+      const { data: existingRows, error: existingError } = await supabase
+        .from('merchant_expenses')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .eq('expense_source', DEJAVOO_SOURCE)
+        .eq('report_date', reportDate);
+
+      if (existingError) throw existingError;
+
+      if (existingRows && existingRows.length > 0) {
+        const periodLabel = new Date(`${reportDate}T12:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const confirmed = await confirmReplace(existingRows.length, periodLabel);
+        if (!confirmed) {
+          toast.info('Upload cancelled. Existing Dejavoo rows were kept.');
+          return;
+        }
+
+        const { error: deleteError } = await supabase
+          .from('merchant_expenses')
+          .delete()
+          .eq('agency_id', agencyId)
+          .eq('expense_source', DEJAVOO_SOURCE)
+          .eq('report_date', reportDate);
+
+        if (deleteError) throw deleteError;
+      }
 
       const { error } = await supabase
         .from('merchant_expenses')
@@ -290,6 +346,16 @@ export default function ExpenseUpload({
 
       if (error) {
         console.error('Insert error:', error);
+        // Put the previous rows back so a failed insert doesn't lose the period's expenses.
+        if (existingRows && existingRows.length > 0) {
+          const { error: restoreError } = await supabase.from('merchant_expenses').insert(existingRows);
+          if (restoreError) {
+            console.error('Restore error:', restoreError);
+            toast.error('Upload failed and the previous Dejavoo rows could not be restored. Re-upload the previous file.');
+          } else {
+            toast.error('Upload failed. The previous Dejavoo rows were restored.');
+          }
+        }
         throw error;
       }
 
@@ -750,6 +816,21 @@ export default function ExpenseUpload({
           onMappingComplete={handleMappingComplete}
         />
       )}
+
+      <AlertDialog open={replaceConfirm !== null} onOpenChange={open => { if (!open) closeReplaceConfirm(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace Dejavoo expenses?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace {replaceConfirm?.count} existing Dejavoo rows for {replaceConfirm?.periodLabel}. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => closeReplaceConfirm(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => closeReplaceConfirm(true)}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

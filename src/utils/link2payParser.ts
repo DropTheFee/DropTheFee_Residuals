@@ -2,26 +2,39 @@ import * as XLSX from 'xlsx';
 import { MerchantData, ProcessingStats, ProcessorStats, ParsedCSVResult } from '@/types';
 
 interface Link2PayConfig {
-  sheetName: string;
   midColumn: number;
   merchantNameColumn: number;
   volumeColumn: number;
-  residualColumn: number;
+  totalResidualColumn: number;
+  residualSplitColumn: number;
+  legacyResidualColumn: number;
   closeDateColumn: number;
   headerRow: number;
   dataStartRow: number;
 }
 
 const LINK2PAY_CONFIG: Link2PayConfig = {
-  sheetName: 'Summary',
   midColumn: 0,
   merchantNameColumn: 1,
   volumeColumn: 3,
-  residualColumn: 9,
+  totalResidualColumn: 6,
+  residualSplitColumn: 8,
+  legacyResidualColumn: 9,
   closeDateColumn: 7,
   headerRow: 4,
   dataStartRow: 5,
 };
+
+const AVI_SHEET = 'AVI Summary';
+const CBC_SHEET = 'CBC Summary';
+const LEGACY_SHEET = 'Summary';
+
+// Current format: AVI Summary (required) + CBC Summary (optional), residual = Total Residual x Residual Split.
+// Legacy format: a single Summary sheet with residual in column J and MIDs starting with 51.
+interface SheetPlan {
+  sheetName: string;
+  legacy: boolean;
+}
 
 export const parseLink2PayFile = async (
   file: File
@@ -34,77 +47,94 @@ export const parseLink2PayFile = async (
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
 
-        if (!workbook.SheetNames.includes(LINK2PAY_CONFIG.sheetName)) {
-          reject(new Error(`Sheet "${LINK2PAY_CONFIG.sheetName}" not found in file`));
-          return;
-        }
+        const hasSheet = (name: string) => workbook.SheetNames.includes(name);
+        const sheetPlans: SheetPlan[] = [];
 
-        const worksheet = workbook.Sheets[LINK2PAY_CONFIG.sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
-
-        if (jsonData.length <= LINK2PAY_CONFIG.dataStartRow) {
-          reject(new Error('File does not have enough rows'));
+        if (hasSheet(AVI_SHEET)) {
+          sheetPlans.push({ sheetName: AVI_SHEET, legacy: false });
+          if (hasSheet(CBC_SHEET)) {
+            sheetPlans.push({ sheetName: CBC_SHEET, legacy: false });
+          }
+        } else if (!hasSheet(CBC_SHEET) && hasSheet(LEGACY_SHEET)) {
+          sheetPlans.push({ sheetName: LEGACY_SHEET, legacy: true });
+        } else {
+          reject(new Error(`Sheet "${AVI_SHEET}" not found in file`));
           return;
         }
 
         const merchantData: MerchantData[] = [];
         const errors: string[] = [];
 
-        const dataRows = jsonData.slice(LINK2PAY_CONFIG.dataStartRow);
+        for (const { sheetName, legacy } of sheetPlans) {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
 
-        dataRows.forEach((row, index) => {
-          try {
-            const mid = row[LINK2PAY_CONFIG.midColumn] ? String(row[LINK2PAY_CONFIG.midColumn]).trim() : '';
-            const merchantName = row[LINK2PAY_CONFIG.merchantNameColumn] ? String(row[LINK2PAY_CONFIG.merchantNameColumn]).trim() : '';
-            const closeDate = row[LINK2PAY_CONFIG.closeDateColumn];
+          const dataRows = jsonData.slice(LINK2PAY_CONFIG.dataStartRow);
 
-            if (!mid.startsWith('51')) {
-              return;
-            }
+          dataRows.forEach((row, index) => {
+            try {
+              const mid = row[LINK2PAY_CONFIG.midColumn] ? String(row[LINK2PAY_CONFIG.midColumn]).trim() : '';
+              const merchantName = row[LINK2PAY_CONFIG.merchantNameColumn] ? String(row[LINK2PAY_CONFIG.merchantNameColumn]).trim() : '';
+              const closeDate = row[LINK2PAY_CONFIG.closeDateColumn];
 
-            if (!merchantName) {
-              return;
-            }
+              if (legacy ? !mid.startsWith('51') : !/^\d+$/.test(mid)) {
+                return;
+              }
 
-            const volumeValue = row[LINK2PAY_CONFIG.volumeColumn];
-            const volume = parseNumber(volumeValue);
+              if (!merchantName) {
+                return;
+              }
 
-            const residualValue = row[LINK2PAY_CONFIG.residualColumn];
-            let residual = parseNumber(residualValue);
+              const volumeValue = row[LINK2PAY_CONFIG.volumeColumn];
+              const volume = parseNumber(volumeValue);
 
-            const residualPercentage = volume > 0 ? (residual / volume) * 100 : 0;
+              const totalResidual = legacy ? null : parseNumber(row[LINK2PAY_CONFIG.totalResidualColumn]);
+              const residualSplit = legacy ? null : parseNumber(row[LINK2PAY_CONFIG.residualSplitColumn]);
+              let residual = legacy
+                ? parseNumber(row[LINK2PAY_CONFIG.legacyResidualColumn])
+                : Math.round(totalResidual! * residualSplit! * 100) / 100;
 
-            const normalizedStatus = closeDate ? 'closed' : 'active';
-            const isActive = normalizedStatus === 'active';
+              const residualPercentage = volume > 0 ? (residual / volume) * 100 : 0;
 
-            merchantData.push({
-              merchantName,
-              merchantId: mid,
-              dba: merchantName,
-              mid,
-              volume,
-              residual,
-              income: residual,
-              residualPercentage,
-              processor: 'Link2Pay',
-              reportType: 'Link2Pay',
-              reportDate: new Date().toISOString(),
-              status: normalizedStatus,
-              isActive: isActive,
-              isClosed: !isActive,
-              agencyIncome: residual,
-              originalRow: {
-                mid,
+              const normalizedStatus = closeDate ? 'closed' : 'active';
+              const isActive = normalizedStatus === 'active';
+
+              merchantData.push({
                 merchantName,
+                merchantId: mid,
+                dba: merchantName,
+                mid,
                 volume,
                 residual,
-                closeDate,
-              },
-            });
-          } catch (error) {
-            errors.push(`Row ${index + LINK2PAY_CONFIG.dataStartRow + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-        });
+                income: residual,
+                residualPercentage,
+                processor: 'Link2Pay',
+                reportType: 'Link2Pay',
+                reportDate: new Date().toISOString(),
+                status: normalizedStatus,
+                isActive: isActive,
+                isClosed: !isActive,
+                agencyIncome: residual,
+                originalRow: {
+                  mid,
+                  merchantName,
+                  volume,
+                  residual,
+                  closeDate,
+                  sheet: sheetName,
+                  ...(legacy ? {} : { totalResidual, residualSplit }),
+                },
+              });
+            } catch (error) {
+              errors.push(`${sheetName} row ${index + LINK2PAY_CONFIG.dataStartRow + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          });
+        }
+
+        if (merchantData.length === 0) {
+          reject(new Error(`No merchants found in ${sheetPlans.map((p) => `"${p.sheetName}"`).join(', ')}. Check that the file is a Link2Pay residual report.`));
+          return;
+        }
 
         const stats = calculateStats(merchantData);
         const processorStats = calculateProcessorStats(merchantData);

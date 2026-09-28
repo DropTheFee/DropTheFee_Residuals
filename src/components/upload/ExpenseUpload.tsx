@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, FileSpreadsheet, CircleAlert as AlertCircle, CircleCheck as CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { parseDejavooFile, matchMerchantsToExpenses, DejavooExpenseRecord } from '@/utils/dejavooParser';
+import { parseDejavooFile, matchMerchantsToExpenses } from '@/utils/dejavooParser';
 import { parseAuthNetTxt, parseAuthNetCsv, matchAuthNetCsvMerchants, AuthNetExpense } from '@/utils/authnetParser';
 import { parseNMIFile, matchNMIMerchants, NMIExpenseRecord } from '@/utils/nmiParser';
 import { parseCyberSourceFile } from '@/utils/cyberSourceParser';
@@ -19,7 +19,7 @@ interface UploadSummary {
   matchedCount: number;
   unmatchedCount: number;
   unmatchedNames: string[];
-  unmatchedExpenses: DejavooExpenseRecord[];
+  unmatchedExpenses: Array<{ merchantName: string; expenseAmount: number }>;
   expenseSource?: string;
 }
 
@@ -256,7 +256,7 @@ export default function ExpenseUpload({
 
       const { data: merchants } = await supabase
         .from('merchants')
-        .select('id, merchant_name')
+        .select('id, merchant_name, merchant_id')
         .eq('agency_id', agencyId);
 
       const { data: savedMappings } = await supabase
@@ -298,7 +298,7 @@ export default function ExpenseUpload({
       if (initialUnmatchedCount > 0) {
         toast.warning(`Upload complete. ${initialUnmatchedCount} merchants need mapping.`);
       } else {
-        toast.success(`Successfully uploaded ${expenses.length} expense records`);
+        toast.success(`Successfully uploaded ${matchedExpenses.length} expense records`);
       }
 
       setFile(null);
